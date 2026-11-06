@@ -1,0 +1,24 @@
+.editor{background:#fff;border:1px solid #dce5e1;border-radius:16px;padding:18px;margin:16px 0;color:#1b2a35;box-shadow:0 8px 28px rgba(20,48,43,.06)}
+.toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.kicker{font-size:10px;letter-spacing:1.2px;font-weight:800;color:#28745d}
+.toolbar h2{font-size:19px;margin:5px 0;color:#173a36}
+.toolbar p{margin:0;color:#65756f;font-size:13px;line-height:1.5}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.actions button{border:0;border-radius:9px;background:#176b55;color:#fff;padding:10px 14px;font-weight:700;cursor:pointer;white-space:nowrap}
+.actions button:disabled{opacity:.55;cursor:not-allowed}
+.actions .secondary{background:#edf3f0;color:#29463e}
+.actions .export{background:#234f87}
+.sheetScroll{max-width:100%;overflow:auto;border:1px solid #9aa8a2;border-radius:8px;background:#fff;max-height:72vh}
+.sheet{border-collapse:collapse;table-layout:fixed;width:max-content;min-width:100%;font-family:Arial,sans-serif;color:#111}
+.sheet td{box-sizing:border-box;overflow:hidden}
+.editable{min-height:16px;min-width:12px;outline:none;cursor:text;white-space:pre-wrap;overflow-wrap:anywhere}
+.editable:focus{background:#f0fbf5;box-shadow:inset 0 0 0 2px #26836a}
+.readonly{white-space:pre-wrap;overflow-wrap:anywhere}
+.dirty,.notice,.error,.loading{padding:10px 12px;border-radius:8px;margin:10px 0;font-size:13px}
+.dirty{background:#fff6df;color:#7b5b13}
+.notice{background:#eaf7ef;color:#17613f}
+.error{background:#fff0f0;color:#9b2525}
+.loading{background:#f2f6f4;color:#476159}
+.footerNote{font-size:11px;color:#718079;margin-top:12px}
+@media(max-width:760px){.toolbar{flex-direction:column}.actions{justify-content:flex-start}.sheetScroll{max-height:68vh}}
+@media print{.editor{border:0;box-shadow:none;padding:0;margin:0}.toolbar,.dirty,.notice,.error,.loading,.footerNote{display:none!important}.sheetScroll{max-height:none;overflow:visible;border:0;border-radius:0}.sheet{min-width:0;width:100%}.editable{box-shadow:none!important;background:transparent!important}}

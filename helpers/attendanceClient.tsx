@@ -1,0 +1,4 @@
+import superjson from "superjson";
+async function call<T>(url:string, body?:unknown):Promise<T>{const r=await fetch(url,{credentials:"include",...(body?{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(body)}:{})});const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.message||"Амалиёт иҷро нашуд.");return d as T;}
+export const getAttendance=async(institutionId:string,classId:string,date:string)=>(await call<{students:any[]}>(`/_api/attendance/list?institutionId=${encodeURIComponent(institutionId)}&classId=${encodeURIComponent(classId)}&date=${date}`)).students||[];
+export const saveAttendance=(input:{institutionId:string;classId:string;date:string;records:{studentId:string;status:"present"|"absent"|"late"|"excused";note?:string}[]})=>call<{saved:number}>("/_api/attendance/save",input);

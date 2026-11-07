@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS institution_attendance (
   created_by BIGINT NOT NULL REFERENCES users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(student_id, attendance_date)
+  UNIQUE(institution_id, student_id, attendance_date)
 );
 CREATE INDEX IF NOT EXISTS attendance_class_date_idx ON institution_attendance(institution_id, class_id, attendance_date);
 

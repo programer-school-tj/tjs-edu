@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getTariffs, addTariff } from "../helpers/financeScheduleClient";
 import { getStaff } from "../helpers/staffClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
+import { buildTariffTemplateCells } from "../helpers/financeTemplateMapping";
 import styles from "./tariffs.module.css";
 
 type QuotaNotice = "warning" | "limit" | null;
@@ -28,6 +29,7 @@ export default function TariffsPage() {
     }).catch((error) => setErr(error.message));
   }, []);
   useEffect(() => { if (school) void Promise.all([getTariffs(school), getStaff(school)]).then(([tariffRows, staffRows]) => { setRows(tariffRows); setStaff(staffRows.filter((item: any) => item.isActive)); }).catch((error) => setErr(error.message)); }, [school]);
+  const templateCells = useMemo(() => buildTariffTemplateCells(staff, rows, "2026-2027", new Date("2026-11-07T00:00:00.000Z")), [staff, rows]);
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setErr("");
@@ -45,7 +47,7 @@ export default function TariffsPage() {
     <header><div><small>TJS EDU · МОЛИЯ ВА КАДРҲО</small><h1>Тарификатсия</h1><p>Меъёрҳои маош ва маълумоти тахассусии кормандон</p></div><div className={styles.actions}><button className={styles.printButton} onClick={() => window.print()}>🖨 Чопи A4</button><button onClick={() => nav("/")}>← Панели асосӣ</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></section>
-    {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Тарификатсия барои соли таҳсили 2026–2027" templateUrl="/_cdn/static/a382c6d0-9133-4a64-8245-dcdbce4a8828-tariffing-template.xlsx" documentType="tariffing" institutionId={school} academicYear="2026-2027" worksheetName="Лист1" headerRows={4} maxRows={143} maxColumns={26} editableThroughRow={142} orientation="landscape" printScale={0.7} /></div>}
+    {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Тарификатсия барои соли таҳсили 2026–2027" templateUrl="/_cdn/static/a382c6d0-9133-4a64-8245-dcdbce4a8828-tariffing-template.xlsx" documentType="tariffing" institutionId={school} academicYear="2026-2027" worksheetName="Лист1" headerRows={4} maxRows={143} maxColumns={26} editableThroughRow={142} prefillCells={templateCells} orientation="landscape" printScale={0.7} /></div>}
     <section className={styles.panel}><h2>Ворид кардани сатри тариф</h2><p className={styles.note}>Танҳо маълумоти санади расмиро ворид кунед. Манбаъ ва санаи амал ҳатман нишон дода шаванд.</p><form onSubmit={save}>
       <label>Корманди мушаххас (ихтиёрӣ)<select value={f.staffId} onChange={(event) => { const staffId = event.target.value; const selected = staff.find((item) => item.id === staffId); setF((value) => ({ ...value, staffId, positionTitle: selected?.positionTitle || value.positionTitle })); }}><option value="">Тариф барои вазифа (умумӣ)</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.positionTitle}</option>)}</select></label>
       <label>Вазифа<input required value={f.positionTitle} onChange={(event) => set("positionTitle", event.target.value)} /></label>

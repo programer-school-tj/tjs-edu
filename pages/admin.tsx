@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import superjson from "superjson";
-import { Check, X, RefreshCw, ShieldCheck, GraduationCap, Clock3, Building2 } from "lucide-react";
+import { Check, X, RefreshCw, ShieldCheck, Clock3, Building2 } from "lucide-react";
+import { BrandMark } from "../components/BrandMark";
 import { Button } from "../components/Button";
 import { Badge } from "../components/Badge";
 import styles from "./admin.module.css";
@@ -54,7 +55,7 @@ export default function AdminPage() {
 
   const pending = items.filter(x => x.status === "pending");
   return <main className={styles.page}>
-    <header className={styles.header}><div className={styles.brand}><div className={styles.logo}><GraduationCap size={24}/></div><div><strong>TJS <span>Edu</span></strong><small>ПАНЕЛИ МАЪМУРИ АСОСӢ</small></div></div><Badge variant="success"><ShieldCheck size={13}/> Super Admin</Badge></header>
+    <header className={styles.header}><div className={styles.brand}><BrandMark size={42} className={styles.logoSvg}/><div><strong>TJS <span>Edu</span></strong><small>ПАНЕЛИ МАЪМУРИ АСОСӢ</small></div></div><Badge variant="success"><ShieldCheck size={13}/> Super Admin</Badge></header>
     <section className={styles.intro}><div><div className={styles.kicker}>ИДОРАКУНИИ ПЛАТФОРМА</div><h1>Баррасии муассисаҳо</h1><p>Дархостҳои бақайдгириро санҷед ва қарор қабул намоед.</p></div><Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw size={16}/> Навсозӣ</Button></section>
     <section className={styles.metrics}><div><Building2/><span>Ҳамаи муассисаҳо</span><strong>{items.length}</strong></div><div><Clock3/><span>Дар интизорӣ</span><strong>{pending.length}</strong></div><div><Check/><span>Тасдиқшуда</span><strong>{items.filter(x => x.status === "approved").length}</strong></div></section>
     {error && <div className={styles.error}>{error}</div>}

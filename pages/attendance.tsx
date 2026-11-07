@@ -16,9 +16,9 @@ const change=(id:string,status:Student["status"])=>setStudents(rows=>rows.map(s=
 const changeNote=(id:string,note:string)=>setStudents(rows=>rows.map(s=>s.studentId===id?{...s,note}:s));
 const markAllPresent=()=>setStudents(rows=>rows.map(s=>({...s,status:"present"})));
 const downloadAttendanceCsv=()=>{
-const safe=(value:unknown)=>{const raw=String(value??"");const guarded=(/^[=+@-]/.test(raw)||raw.startsWith("\\t")||raw.startsWith("\\r"))?"'"+raw:raw;return '"'+guarded.replace(/"/g,'""')+'"';};
+const safe=(value:unknown)=>{const raw=String(value??"");const guarded=(/^[=+@-]/.test(raw)||raw.startsWith("\t")||raw.startsWith("\r"))?"'"+raw:raw;return '"'+guarded.replace(/"/g,'""')+'"';};
 const data=[["№","Ному насаб","Рақами шахсӣ","Сана","Ҳолат","Эзоҳ"],...students.map((s,i)=>[i+1,s.fullName,s.studentNumber||"",date,s.status?labels[s.status]:"Қайд нашудааст",s.note||""])];
-const csv="\\uFEFF"+data.map(row=>row.map(safe).join(";")).join("\\r\\n");
+const csv="\uFEFF"+data.map(row=>row.map(safe).join(";")).join("\r\n");
 const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="TJS-Edu-davomot-"+date+".csv";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
 };
 const submit=async()=>{if(!marked.length)return;setBusy(true);setError("");setSaved("");try{const r=await saveAttendance({institutionId:school,classId,date,records:marked.map(s=>({studentId:s.studentId,status:s.status as Exclude<Student["status"],null>,note:s.note||""}))});setSaved(`${r.saved} сабти давомот нигоҳ дошта шуд.`);}catch(e){setError(e instanceof Error?e.message:"Давомот сабт нашуд.");}finally{setBusy(false);}};

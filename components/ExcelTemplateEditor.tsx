@@ -133,6 +133,7 @@ export function ExcelTemplateEditor(props: Props) {
 
   const load = useCallback(async () => {
     if (!props.institutionId) return;
+    const pendingEdits = { ...dirtyCellsRef.current };
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
       const response = await fetch(props.templateUrl);
@@ -157,16 +158,20 @@ export function ExcelTemplateEditor(props: Props) {
       const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey);
       const cells = (saved?.payload?.cells || {}) as Record<string, string>;
       savedCellsRef.current = { ...cells };
-      dirtyCellsRef.current = {};
       Object.entries(cells).forEach(([address, value]) => {
         if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(address) || typeof value !== "string") return;
         const target = worksheet.getCell(address);
         // Never replace an Excel formula with its cached display value.
         if (!isFormulaCell(target)) target.value = value;
       });
+      Object.entries(pendingEdits).forEach(([address, value]) => {
+        const target = worksheet.getCell(address);
+        if (!isFormulaCell(target)) target.value = value;
+      });
+      dirtyCellsRef.current = pendingEdits;
       workbookRef.current = workbook;
       worksheetRef.current = worksheet;
-      setDirty(false); setReady(true); setRevision((v) => v + 1);
+      setDirty(Object.keys(pendingEdits).length > 0); setReady(true); setRevision((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Бланка кушода нашуд.");
     } finally { setBusy(false); }

@@ -27,12 +27,14 @@ export async function handle(request: Request) {
     if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассиса метавонад ҷадвал созад." }), { status: 403 });
 
     const result = await withPlanQuota(x.institutionId, "timetable", async (trx) => {
-      const [loads, staff, existing] = await Promise.all([
+      const [loads, staff, existing, availability] = await Promise.all([
         trx.selectFrom("institutionTeachingLoads").innerJoin("institutionClasses", "institutionClasses.id", "institutionTeachingLoads.classId")
           .select(["institutionTeachingLoads.id", "institutionTeachingLoads.classId", "institutionTeachingLoads.staffId", "institutionTeachingLoads.subject", "institutionTeachingLoads.weeklyHours", "institutionClasses.grade"])
           .where("institutionTeachingLoads.institutionId", "=", x.institutionId).where("institutionTeachingLoads.academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaff").select(["id", "workloadHours"]).where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
         trx.selectFrom("institutionTimetableEntries").select(["id", "classId", "staffId", "subject", "weekday", "lessonNumber", "shiftNumber"])
+          .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
+        trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "lessonNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
       ]);
       if (!loads.length) throw new Error("NO_TEACHING_LOADS");
@@ -70,6 +72,7 @@ export async function handle(request: Request) {
       }
       if (!tasks.length) return { created: 0, unplaced: [] as string[] };
 
+      const blockedTeacherSlots = new Set(availability.map((slot) => `${slot.staffId}:${slot.weekday}:${slot.lessonNumber}`));
       const classSlots = new Set(existing.map((e) => `${e.classId}:${e.weekday}:${e.lessonNumber}`));
       const teacherSlots = new Set(existing.map((e) => `${e.staffId}:${e.weekday}:${e.shiftNumber}:${e.lessonNumber}`));
       const classDayCounts = new Map<string, number>();
@@ -101,6 +104,8 @@ export async function handle(request: Request) {
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(`${task.classId}:${slot.weekday}:${slot.lessonNumber}`) &&
             !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.shiftNumber}:${slot.lessonNumber}`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < 6
           );
           if (!candidates.length) { success = false; break; }

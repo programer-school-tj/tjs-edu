@@ -8,12 +8,15 @@ import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generate
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useLanguage } from "../helpers/i18n";
 
 const days = ["", "Душанбе", "Сешанбе", "Чоршанбе", "Панҷшанбе", "Ҷумъа", "Шанбе"];
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function TimetablePage() {
   const nav = useNavigate();
+  const { t } = useLanguage();
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [classes, setClasses] = useState<any[]>([]);
@@ -177,7 +180,7 @@ export default function TimetablePage() {
   };
 
   return <main className={styles.page}><div className={styles.wrap}>
-    <header><div><small>TJS EDU · ТАШКИЛИ РАВАНДИ ТАЪЛИМ</small><h1>Ҷадвали дарсӣ</h1><p>Тақсимоти дарсҳо байни синфҳо ва омӯзгорон</p></div><div className={styles.actions}><button className={styles.printButton} onClick={() => window.print()}>🖨 Чопи A4</button><button onClick={() => nav("/")}>← Панели асосӣ</button></div></header>
+    <header><div><small>TJS EDU · ТАШКИЛИ РАВАНДИ ТАЪЛИМ</small><h1>{t("finance.timetableTitle")}</h1><p>{t("finance.timetableSubtitle")}</p></div><div className={styles.actions}><LanguageSwitcher /><button className={styles.printButton} onClick={() => window.print()}>🖨 {t("common.printA4")}</button><button onClick={() => nav("/")}>← {t("common.mainDashboard")}</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Соли таҳсил<input value={year} onChange={(event) => setYear(event.target.value)} /></label></div></section>
     {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Ҷадвали дарсӣ · соли таҳсили 2026–2027" templateUrl="/_cdn/static/8013df35-8713-4a50-a42b-3a152917199a-timetable-template.xlsx" documentType="timetable" institutionId={school} academicYear={year} worksheetName="Лист3" headerRows={3} maxRows={81} maxColumns={27} orientation="portrait" printScale={0.55} /></div>}

@@ -40,6 +40,7 @@ export default function TimetablePage() {
     if (!school) return;
     void Promise.all([getClasses(school), getStaff(school)]).then(([classRows, staffRows]) => {
       setClasses(classRows);
+      setGridClassId((current) => current || classRows[0]?.id || "");
       setStaff(staffRows.filter((item: any) => item.isActive));
       setF((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
       setLoadForm((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));

@@ -9,11 +9,14 @@ export function PlanQuotaNotice({ status, onClose }: Props) {
   useEffect(() => {
     setShowPlans(false);
     if (!status) { setVisible(false); return; }
-    try {
-      const lastPrompt = Number(localStorage.getItem("tjsedu-quota-prompt-at") || "0");
-      if (Date.now() - lastPrompt < 10 * 60 * 1000) { setVisible(false); return; }
-      localStorage.setItem("tjsedu-quota-prompt-at", String(Date.now()));
-    } catch { /* If browser storage is unavailable, still show the quota notice. */ }
+    // A hard limit must always explain why saving is blocked. Only the early warning is throttled.
+    if (status === "warning") {
+      try {
+        const lastPrompt = Number(localStorage.getItem("tjsedu-quota-prompt-at") || "0");
+        if (Date.now() - lastPrompt < 10 * 60 * 1000) { setVisible(false); return; }
+        localStorage.setItem("tjsedu-quota-prompt-at", String(Date.now()));
+      } catch { /* If browser storage is unavailable, still show the quota notice. */ }
+    }
     setVisible(true);
   }, [status]);
   if (!status || !visible) return null;

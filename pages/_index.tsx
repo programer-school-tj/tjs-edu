@@ -10,11 +10,12 @@ import { Input } from "../components/Input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/Select";
 import { ThemeModeSwitch } from "../components/ThemeModeSwitch";
 import styles from "./_index.module.css";
+import { BrandMark } from "../components/BrandMark";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, BookOpen, Building2, CalendarCheck,
   CalendarDays, CheckCircle2, ChevronDown, CircleHelp, ClipboardList,
   GraduationCap, LayoutDashboard, Menu, Plus, Search, Settings,
-  ShieldCheck, Users, Wallet, X
+  ShieldCheck, Users, Wallet, X, Crown
 } from "lucide-react";
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
   { label: "Тарификатсия", icon: ClipboardList },
   { label: "Ҳисоботҳо", icon: ClipboardList },
   { label: "Роҳнамо ва омӯзиш", icon: CircleHelp },
+  { label: "Тарофаҳо ва PRO", icon: Crown },
 ];
 
 export default function HomePage() {
@@ -110,7 +112,7 @@ export default function HomePage() {
     <div className={styles.appShell}>
       <aside className={`${styles.sidebar} ${mobileMenu ? styles.sidebarOpen : ""}`}>
         <div className={styles.brand}>
-          <div className={styles.brandMark}><GraduationCap size={25} strokeWidth={2.2} /></div>
+          <BrandMark size={42} className={styles.brandMarkSvg} />
           <div><div className={styles.brandName}>TJS <span>Edu</span></div><div className={styles.brandCaption}>МАОРИФИ ТОҶИКИСТОН</div></div>
           <button className={styles.mobileClose} onClick={() => setMobileMenu(false)} aria-label="Пӯшидан"><X size={19} /></button>
         </div>
@@ -119,7 +121,7 @@ export default function HomePage() {
         <nav className={styles.navigation}>
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            return <button key={item.label} className={`${styles.navItem} ${activeNav === item.label ? styles.navActive : ""}`} onClick={() => { if (item.label === "Маъмурияти платформа") { navigate("/admin"); return; } if (item.label === "Омӯзгорон ва кормандон") { navigate("/staff"); return; } if (item.label === "Хонандагон ва донишҷӯён") { navigate("/students"); return; } if (item.label === "Синфҳо") { navigate("/classes"); return; } if (item.label === "Ҷадвали дарсҳо") { navigate("/timetable"); return; } if (item.label === "Давомоти хонандагон") { navigate("/attendance"); return; } if (item.label === "Мавод ва дарсҳо") { navigate("/materials"); return; } if (item.label === "Ҳисоб ва маош") { navigate("/payroll"); return; } if (item.label === "Тарификатсия") { navigate("/tariffs"); return; } if (item.label === "Ҳисоботҳо") { navigate("/reports"); return; } if (item.label === "Роҳнамо ва омӯзиш") { navigate("/help"); return; } setActiveNav(item.label); setMobileMenu(false); }}>
+            return <button key={item.label} className={`${styles.navItem} ${activeNav === item.label ? styles.navActive : ""}`} onClick={() => { if (item.label === "Маъмурияти платформа") { navigate("/admin"); return; } if (item.label === "Омӯзгорон ва кормандон") { navigate("/staff"); return; } if (item.label === "Хонандагон ва донишҷӯён") { navigate("/students"); return; } if (item.label === "Синфҳо") { navigate("/classes"); return; } if (item.label === "Ҷадвали дарсҳо") { navigate("/timetable"); return; } if (item.label === "Давомоти хонандагон") { navigate("/attendance"); return; } if (item.label === "Мавод ва дарсҳо") { navigate("/materials"); return; } if (item.label === "Ҳисоб ва маош") { navigate("/payroll"); return; } if (item.label === "Тарификатсия") { navigate("/tariffs"); return; } if (item.label === "Ҳисоботҳо") { navigate("/reports"); return; } if (item.label === "Роҳнамо ва омӯзиш") { navigate("/help"); return; } if (item.label === "Тарофаҳо ва PRO") { navigate("/plans"); return; } setActiveNav(item.label); setMobileMenu(false); }}>
               <Icon size={18} /><span>{item.label}</span>
             </button>;
           })}
@@ -147,6 +149,7 @@ export default function HomePage() {
           </div>
 
           <div className={styles.notice}><div className={styles.noticeIcon}><ShieldCheck size={19} /></div><div><strong>Пайвастшавӣ ба пойгоҳи дода</strong><p>Маълумоти муассисаҳо аз пойгоҳи дода гирифта мешавад. Дархостҳои нав то тасдиқи маъмур дар интизорӣ мемонанд.</p></div><Badge variant="success">ОНЛАЙН</Badge></div>
+          <section className={styles.plansBanner}><div className={styles.plansBannerIcon}><Crown size={22}/></div><div><strong>Имкониятҳои FREE ва PRO</strong><p>Аз имкониятҳои ройгон оғоз кунед ва ҳангоми зарурат ба истифодаи бемаҳдуд гузаред.</p></div><button onClick={() => navigate("/plans")}>Дидани тарофаҳо <span>→</span></button></section>
 
           <section className={styles.statsGrid}>
             <div className={styles.statCard}><div className={styles.statTop}><span>Ҳамаи муассисаҳо</span><div className={styles.statIcon}><Building2 size={18} /></div></div><div className={styles.statValue}>{institutions.length}</div><div className={styles.statFoot}><span className={styles.positive}><CheckCircle2 size={14} /> воқеӣ</span><span>муассисаҳои ҳисоби шумо</span></div><div className={styles.sparkline}><span style={{height:"35%"}}/><span style={{height:"48%"}}/><span style={{height:"42%"}}/><span style={{height:"60%"}}/><span style={{height:"52%"}}/><span style={{height:"72%"}}/><span style={{height:"66%"}}/><span style={{height:"88%"}}/></div></div>

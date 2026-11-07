@@ -143,7 +143,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
   const setLanguage = useCallback((next: AppLanguage) => {
     setLanguageState(next);
-    try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ },
+    try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ }
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;

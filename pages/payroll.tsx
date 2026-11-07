@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getStaff } from "../helpers/staffClient";
 import { getPayroll, addPayroll, getTariffs } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
+import { buildPayrollTemplateCells } from "../helpers/financeTemplateMapping";
 import styles from "./payroll.module.css";
 
 type QuotaNotice = "warning" | "limit" | null;
@@ -40,6 +41,7 @@ export default function PayrollPage() {
   }, [school]);
   useEffect(() => { if (school) void getPayroll(school, month).then(setRows).catch((error) => setErr(error.message)); }, [school, month]);
 
+  const templateCells = useMemo(() => buildPayrollTemplateCells(staff, tariffs, rows, "2026-2027", month), [staff, tariffs, rows, month]);
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const selectedStaff = staff.find((item) => item.id === f.staffId);
   const matchingTariffs = selectedStaff
@@ -64,7 +66,7 @@ export default function PayrollPage() {
     <header><div><small>TJS EDU · МОЛИЯ</small><h1>Табели маош</h1><p>Ҳисоб ва сабти музди меҳнати кормандон</p></div><div className={styles.actions}><button className={styles.printButton} onClick={() => window.print()}>🖨 Чопи A4</button><button onClick={() => nav("/")}>← Панели асосӣ</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Моҳи ҳисоботӣ<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label></div></section>
-    {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Табели маош · бланкаи аслии муассиса" templateUrl="/_cdn/static/aef649ff-c65f-4d60-b3d4-b819d651e1dc-saformad-payroll-template.xlsx" documentType="payroll" institutionId={school} academicYear="2026-2027" periodKey={month} worksheetName="Лист1" headerRows={4} maxRows={152} maxColumns={30} editableThroughRow={142} orientation="landscape" printScale={0.7} /></div>}
+    {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Табели маош · бланкаи аслии муассиса" templateUrl="/_cdn/static/aef649ff-c65f-4d60-b3d4-b819d651e1dc-saformad-payroll-template.xlsx" documentType="payroll" institutionId={school} academicYear="2026-2027" periodKey={month} worksheetName="Лист1" headerRows={4} maxRows={152} maxColumns={30} editableThroughRow={142} prefillCells={templateCells} orientation="landscape" printScale={0.7} /></div>}
     <section className={styles.panel}><h2>Сабти маоши корманд</h2><p className={styles.note}>Ҳангоми интихоби тариф маблағи асосӣ аз сабти сервер гирифта мешавад. Иловапулиҳо ва нигоҳдоштҳоро танҳо аз рӯйи санадҳои тасдиқшуда ворид кунед. Андоз ҳоло худкор ҳисоб карда намешавад.</p><form onSubmit={save}>
       <label>Корманд<select required value={f.staffId} onChange={(event) => { const staffId = event.target.value; setF((value) => ({ ...value, staffId, tariffId: "", baseAmount: "" })); }}><option value="">Интихоб кунед</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.positionTitle}</option>)}</select></label>
       <label>Тариф (ихтиёрӣ)<select value={f.tariffId} onChange={(event) => { const id = event.target.value; const tariff = availableTariffs.find((item) => item.id === id); setF((value) => ({ ...value, tariffId: id, baseAmount: tariff ? String(tariff.monthlyBase) : value.baseAmount })); }}><option value="">Бе пайваст</option>{availableTariffs.map((item) => <option key={item.id} value={item.id}>{item.staffId ? "Тарифи шахсӣ" : item.positionTitle} · {item.qualificationCategory || ""} · {item.monthlyBase} сомонӣ</option>)}</select>{selectedStaff && matchingTariffs.length === 0 && <small className={styles.note}>Барои вазифаи «{selectedStaff.positionTitle}» тарифи мувофиқ ёфт нашуд. Аввал дар бахши тарификатсия тарифи ҳамин вазифаро ворид кунед.</small>}</label>

@@ -95,7 +95,7 @@ export async function handle(request: Request) {
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
-    const rowMatch = /^ROW_(\d+)_(CLASS_NOT_FOUND|TEACHER_NOT_FOUND|CONFLICT)$/.exec(code);
+    const rowMatch = /^ROW_(\d+)_(CLASS_NOT_FOUND|TEACHER_NOT_FOUND|CONFLICT|TEACHER_UNAVAILABLE)$/.exec(code);
     const message = error instanceof z.ZodError ? "Файли Excel ё маълумоти он нодуруст аст."
       : rowMatch?.[2] === "CLASS_NOT_FOUND" ? `Синфи сатри ${rowMatch[1]} дар муассиса ёфт нашуд.`
       : rowMatch?.[2] === "TEACHER_NOT_FOUND" ? `Омӯзгори сатри ${rowMatch[1]} дар рӯйхати кормандон ёфт нашуд.`

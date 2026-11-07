@@ -29,7 +29,8 @@
     "components",
     "helpers",
     "endpoints",
-    "vite.config.ts"
+    "vite.config.ts",
+    "server"
   ],
   "exclude": [
     "**/*.spec.ts",

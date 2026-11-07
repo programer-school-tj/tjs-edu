@@ -11,6 +11,7 @@ const schema = z.object({
     weekday: z.number().int().min(1).max(6),
     lessonNumber: z.number().int().min(0).max(6),
   })).max(42).refine((items) => new Set(items.map((item) => item.weekday + ":" + item.lessonNumber)).size === items.length, "Қоидаи такрорӣ вуҷуд дорад.")
+    .refine((items) => items.every((item) => item.lessonNumber === 0 || !items.some((other) => other.weekday === item.weekday && other.lessonNumber === 0)), "Рӯзи истироҳатро бо соати банд якҷоя интихоб кардан мумкин нест.")
 });
 
 export async function handle(request: Request) {

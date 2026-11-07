@@ -15,6 +15,7 @@ type Props = {
   headerRows: number;
   maxRows: number;
   maxColumns: number;
+  editableThroughRow?: number;
   orientation?: "landscape" | "portrait";
   printScale?: number;
 };
@@ -182,7 +183,7 @@ export function ExcelTemplateEditor(props: Props) {
     setBusy(true); setError(""); setNotice("");
     try {
       const cells: Record<string, string> = {};
-      for (let row = props.headerRows + 1; row <= props.maxRows; row++) {
+      for (let row = props.headerRows + 1; row <= (props.editableThroughRow ?? props.maxRows); row++) {
         for (let col = 1; col <= props.maxColumns; col++) {
           const address = `${colLetter(col)}${row}`;
           const cell = worksheetRef.current.getCell(address);
@@ -245,7 +246,7 @@ export function ExcelTemplateEditor(props: Props) {
               if (mergeInfo.hidden.has(address)) return null;
               const cell = worksheet.getCell(rowNumber, colNumber);
               const merge = mergeInfo.map.get(address);
-              const editable = rowNumber > props.headerRows && !isFormulaCell(cell);
+              const editable = rowNumber > props.headerRows && rowNumber <= (props.editableThroughRow ?? props.maxRows) && !isFormulaCell(cell);
               const text = cellText(cell.value);
               const columnWidth = worksheet.getColumn(colNumber).width || 10;
               return <td key={address} rowSpan={merge ? merge.endRow - merge.startRow + 1 : 1} colSpan={merge ? merge.endCol - merge.startCol + 1 : 1} style={styleFor(cell, columnWidth)}>

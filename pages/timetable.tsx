@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getClasses } from "../helpers/educationClient";
 import { getStaff } from "../helpers/staffClient";
-import { getTimetable, addTimetable } from "../helpers/financeScheduleClient";
+import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
@@ -18,6 +18,9 @@ export default function TimetablePage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [rows, setRows] = useState<any[]>([]);
+  const [loads, setLoads] = useState<any[]>([]);
+  const [loadBusy, setLoadBusy] = useState(false);
+  const [loadForm, setLoadForm] = useState({ classId: "", staffId: "", subject: "", weeklyHours: "1" });
   const [year, setYear] = useState("2026-2027");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,11 +41,12 @@ export default function TimetablePage() {
       setClasses(classRows);
       setStaff(staffRows.filter((item: any) => item.isActive));
       setF((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
+      setLoadForm((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
     }).catch((error) => setErr(error.message));
   }, [school]);
 
   useEffect(() => {
-    if (school) void getTimetable(school, year).then(setRows).catch((error) => setErr(error.message));
+    if (school) void Promise.all([getTimetable(school, year), getTeachingLoads(school, year)]).then(([entries, allocations]) => { setRows(entries); setLoads(allocations); }).catch((error) => setErr(error.message));
   }, [school, year]);
 
   const selectedTeacher = staff.find((item) => item.id === f.staffId);
@@ -52,6 +56,9 @@ export default function TimetablePage() {
     : Math.max(0, Number(selectedTeacher.workloadHours) - teacherScheduledHours);
 
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
+  const setLoad = (key: string, value: string) => setLoadForm((current) => ({ ...current, [key]: value }));
+  const saveLoad = async (event: React.FormEvent) => { event.preventDefault(); setLoadBusy(true); setErr(""); try { await addTeachingLoad({ institutionId: school, ...loadForm, weeklyHours: Number(loadForm.weeklyHours), academicYear: year }); setLoads(await getTeachingLoads(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : "Сарборӣ сабт нашуд."); } finally { setLoadBusy(false); } };
+  const generate = async () => { setLoadBusy(true); setErr(""); try { const result = await generateTimetable({ institutionId: school, academicYear: year }); setRows(await getTimetable(school, year)); window.alert(`Ҷадвал сохта шуд. Дарсҳои нав: ${result.created}`); } catch (error) { setErr(error instanceof Error ? error.message : "Ҷадвал сохта нашуд."); } finally { setLoadBusy(false); } };
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -71,6 +78,13 @@ export default function TimetablePage() {
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Соли таҳсил<input value={year} onChange={(event) => setYear(event.target.value)} /></label></div></section>
     {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Ҷадвали дарсӣ · соли таҳсили 2026–2027" templateUrl="/_cdn/static/8013df35-8713-4a50-a42b-3a152917199a-timetable-template.xlsx" documentType="timetable" institutionId={school} academicYear={year} worksheetName="Лист3" headerRows={3} maxRows={81} maxColumns={27} orientation="portrait" printScale={0.55} /></div>}
+    <section className={styles.panel}><h2>Сарбории фаннии омӯзгорон</h2><p className={styles.note}>Аввал муайян кунед, ки ҳар омӯзгор дар кадом синф кадом фанро чанд соат дар як ҳафта мегузаронад.</p><form onSubmit={saveLoad}>
+      <label>Синф<select required value={loadForm.classId} onChange={(event) => setLoad("classId", event.target.value)}>{classes.map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>
+      <label>Омӯзгор<select required value={loadForm.staffId} onChange={(event) => setLoad("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>
+      <label>Фан<input required value={loadForm.subject} onChange={(event) => setLoad("subject", event.target.value)} placeholder="Масалан: Информатика" /></label>
+      <label>Соат дар як ҳафта<input required type="number" min="1" max="36" step="1" value={loadForm.weeklyHours} onChange={(event) => setLoad("weeklyHours", event.target.value)} /></label>
+      <button disabled={loadBusy || !school || !loadForm.classId || !loadForm.staffId || loadForm.subject.trim().length < 2}>{loadBusy ? "Сабт..." : "Сабти сарборӣ"}</button>
+    </form><div className={styles.table}><table><thead><tr><th>СИНФ</th><th>ФАН</th><th>ОМӮЗГОР</th><th>СОАТ/ҲАФТА</th></tr></thead><tbody>{loads.map((row) => <tr key={row.id}><td>{row.grade}{row.section}</td><td>{row.subject}</td><td>{row.teacherName}</td><td>{Number(row.weeklyHours)}</td></tr>)}</tbody></table>{!loads.length && <p>Сарбории фаннӣ ҳоло ворид нашудааст.</p>}</div><button type="button" disabled={loadBusy || !loads.length} onClick={generate}>⚙️ Тартиб додани ҷадвали худкор</button></section>
     <section className={styles.panel}><h2>Иловаи дарс</h2><form onSubmit={save}>
       <label>Синф<select required value={f.classId} onChange={(event) => set("classId", event.target.value)}>{classes.map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>
       <label>Омӯзгор<select required value={f.staffId} onChange={(event) => set("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select>{selectedTeacher && teacherRemainingHours !== null && <small className={styles.note}>Сарбории тасдиқшуда: {Number(selectedTeacher.workloadHours)} соат · Дар ҷадвал: {teacherScheduledHours} · Боқимонда: {teacherRemainingHours} соат.</small>}</label>
@@ -80,7 +94,7 @@ export default function TimetablePage() {
       <label>Рақами кабинет<input value={f.room} onChange={(event) => set("room", event.target.value)} /></label>
       <button disabled={busy || !school || !f.classId || !f.staffId || teacherRemainingHours === 0}>{busy ? "Сабт..." : "Иловаи дарс"}</button>
     </form></section>
-    <section className={styles.panel}><h2>Ҷадвали дарсҳо ({rows.length})</h2><div className={styles.table}><table><thead><tr><th>РӮЗ</th><th>СОАТ</th><th>СИНФ</th><th>ФАН</th><th>ОМӮЗГОР</th><th>КАБИНЕТ</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{days[row.weekday]}</td><td>{row.lessonNumber}</td><td>{row.grade}{row.section}</td><td>{row.subject}</td><td>{row.teacherName}</td><td>{row.room || "—"}</td></tr>)}</tbody></table>{!rows.length && <p>Ҷадвал ҳоло холӣ аст. Аввал синф ва кормандро сабт кунед.</p>}</div></section>
+    <section className={styles.panel}><h2>Ҷадвали дарсҳо ({rows.length})</h2><div className={styles.table}><table><thead><tr><th>БАСТ</th><th>РӮЗ</th><th>СОАТ</th><th>СИНФ</th><th>ФАН</th><th>ОМӮЗГОР</th><th>КАБИНЕТ</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{row.shiftNumber === 2 ? "2" : "1"}</td><td>{days[row.weekday]}</td><td>{row.lessonNumber}</td><td>{row.grade}{row.section}</td><td>{row.subject}</td><td>{row.teacherName}</td><td>{row.room || "—"}</td></tr>)}</tbody></table>{!rows.length && <p>Ҷадвал ҳоло холӣ аст. Аввал синф ва кормандро сабт кунед.</p>}</div></section>
     <footer>© 2026 TJS Edu · Барои як синф ва як омӯзгор дар як вақт дарси такрорӣ иҷозат дода намешавад.</footer>
   </div><PlanQuotaNotice status={quotaNotice} onClose={() => setQuotaNotice(null)} /></main>;
 }

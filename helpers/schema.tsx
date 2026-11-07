@@ -156,6 +156,17 @@ export interface Institutions {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface InstitutionStaffAvailability {
+  academicYear: string;
+  createdAt: Generated<Timestamp>;
+  createdBy: number;
+  id: Generated<string>;
+  institutionId: string;
+  lessonNumber: number;
+  staffId: string;
+  weekday: number;
+}
+
 export interface InstitutionStaff {
   createdAt: Generated<Timestamp>;
   createdBy: number;
@@ -290,6 +301,7 @@ export interface DB {
   institutionPlanUsage: InstitutionPlanUsage;
   institutions: Institutions;
   institutionStaff: InstitutionStaff;
+  institutionStaffAvailability: InstitutionStaffAvailability;
   institutionStudents: InstitutionStudents;
   institutionTariffs: InstitutionTariffs;
   institutionTimetableEntries: InstitutionTimetableEntries;

@@ -55,7 +55,12 @@ const server = createServer(async (incoming, outgoing) => {
     if (typeof module.handle !== "function") throw new Error("Endpoint must export handle(request)");
     const response: Response = await module.handle(request);
     outgoing.statusCode = response.status;
-    response.headers.forEach((value, key) => outgoing.setHeader(key, value));
+    const responseHeaders = response.headers as Headers & { getSetCookie?: () => string[] };
+    responseHeaders.forEach((value, key) => {
+      if (key.toLowerCase() !== "set-cookie") outgoing.setHeader(key, value);
+    });
+    const cookies = responseHeaders.getSetCookie?.();
+    if (cookies?.length) outgoing.setHeader("Set-Cookie", cookies);
     const responseBody = Buffer.from(await response.arrayBuffer());
     outgoing.end(responseBody);
   } catch (error) {

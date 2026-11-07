@@ -30,7 +30,8 @@ export async function handle(request: Request) {
       .where("periodKey", "=", periodKey)
       .executeTakeFirst();
     return new Response(superjson.stringify({ document: document || null }), { headers: { "Content-Type": "application/json" } });
-  } catch {
-    return new Response(superjson.stringify({ message: "Бланка дастрас нест." }), { status: 400 });
+  } catch (error) {
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : 400;
+    return new Response(superjson.stringify({ message: "Бланка дастрас нест." }), { status });
   }
 }

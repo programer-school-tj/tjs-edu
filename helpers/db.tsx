@@ -13,7 +13,7 @@ class FlootCamelCasePlugin extends CamelCasePlugin {
   }
 }
 
-const databaseUrl = process.env.DATABASE_URL || process.env.FLOOT_DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required to start the TJS Edu API server.");
 }

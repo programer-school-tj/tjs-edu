@@ -44,7 +44,8 @@ export async function handle(request: Request) {
 
     return new Response(superjson.stringify({ document }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error) {
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : 500;
     const message = error instanceof z.ZodError ? "Маълумоти бланка нодуруст аст." : "Сабти бланка иҷро нашуд.";
-    return new Response(superjson.stringify({ message }), { status: 400, headers: { "Content-Type": "application/json" } });
+    return new Response(superjson.stringify({ message }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

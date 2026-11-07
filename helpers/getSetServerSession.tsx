@@ -86,7 +86,7 @@ export async function setServerSession(
   const cookieValue = [
     `${CookieName}=${token}`,
     "HttpOnly",
-    "Secure",
+    ...(process.env.NODE_ENV === "production" ? ["Secure"] : []),
     "SameSite=Lax",
     "Path=/",
     `Max-Age=${SessionExpirationSeconds}`,

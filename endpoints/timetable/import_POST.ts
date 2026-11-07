@@ -40,7 +40,7 @@ export async function handle(request: Request) {
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaff").select(["id", "fullName", "workloadHours"])
           .where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
-        trx.selectFrom("institutionTimetableEntries").select(["classId", "staffId", "weekday", "lessonNumber", "shiftNumber"])
+        trx.selectFrom("institutionTimetableEntries").select(["classId", "staffId", "weekday", "lessonNumber", "shiftNumber", "room"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
       ]);
       const classMap = new Map(classes.map((row) => [`${row.grade}:${row.section.trim().toLocaleLowerCase()}`, row]));
@@ -49,6 +49,7 @@ export async function handle(request: Request) {
       for (const row of existing) teacherHours.set(row.staffId, (teacherHours.get(row.staffId) || 0) + 1);
       const occupiedClass = new Set(existing.map((row) => `${row.classId}:${row.weekday}:${row.lessonNumber}`));
       const occupiedTeacher = new Set(existing.map((row) => `${row.staffId}:${row.weekday}:${row.shiftNumber}:${row.lessonNumber}`));
+      const occupiedRooms = new Set(existing.filter((row) => row.room?.trim()).map((row) => `${row.room!.trim().toLocaleLowerCase()}:${row.weekday}:${row.shiftNumber}:${row.lessonNumber}`));
       const newRows: Array<{ institutionId: string; classId: string; staffId: string; subject: string; shiftNumber: number; weekday: number; lessonNumber: number; room: string | null; academicYear: string; createdBy: number }> = [];
       const importedHours = new Map<string, number>();
 
@@ -61,14 +62,17 @@ export async function handle(request: Request) {
         const shiftNumber = Number(cls.grade) <= 7 ? 2 : 1;
         const classSlot = `${cls.id}:${row.weekday}:${row.lessonNumber}`;
         const teacherSlot = `${teacher.id}:${row.weekday}:${shiftNumber}:${row.lessonNumber}`;
-        if (occupiedClass.has(classSlot) || occupiedTeacher.has(teacherSlot)) throw new Error(`ROW_${index + 2}_CONFLICT`);
+        const normalizedRoom = row.room.trim().toLocaleLowerCase();
+        const roomSlot = normalizedRoom ? `${normalizedRoom}:${row.weekday}:${shiftNumber}:${row.lessonNumber}` : "";
+        if (occupiedClass.has(classSlot) || occupiedTeacher.has(teacherSlot) || (roomSlot && occupiedRooms.has(roomSlot))) throw new Error(`ROW_${index + 2}_CONFLICT`);
         occupiedClass.add(classSlot);
         occupiedTeacher.add(teacherSlot);
+        if (roomSlot) occupiedRooms.add(roomSlot);
         importedHours.set(teacher.id, (importedHours.get(teacher.id) || 0) + 1);
         newRows.push({
           institutionId: x.institutionId, classId: cls.id, staffId: teacher.id,
           subject: row.subject, shiftNumber, weekday: row.weekday, lessonNumber: row.lessonNumber,
-          room: row.room || null, academicYear: x.academicYear, createdBy: user.id,
+          room: row.room.trim() || null, academicYear: x.academicYear, createdBy: user.id,
         });
       }
 

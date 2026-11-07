@@ -14,3 +14,5 @@ export const saveFormDocument=(x:{institutionId:string;documentType:FormDocument
 export const getTeachingLoads=async(institutionId:string,academicYear:string)=>(await call<{loads:any[]}>(`/_api/teaching-loads/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).loads||[];
 export const addTeachingLoad=(x:any)=>call<{load:any}>("/_api/teaching-loads/create",x);
 export const generateTimetable=(x:{institutionId:string;academicYear:string})=>call<{created:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/generate",x);
+
+export const importTimetableRows=(x:{institutionId:string;academicYear:string;rows:Array<{grade:number;section:string;weekday:number;lessonNumber:number;subject:string;teacherName:string;room?:string}>})=>call<{imported:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/import",x);

@@ -8,7 +8,7 @@ const schema = z.object({
   staffId: z.string().uuid(),
   classId: z.string().uuid(),
   subject: z.string().trim().min(2).max(120),
-  weeklyHours: z.number().min(0.5).max(36),
+  weeklyHours: z.number().int().min(1).max(36),
   academicYear: z.string().regex(/^20[0-9]{2}-20[0-9]{2}$/),
 });
 

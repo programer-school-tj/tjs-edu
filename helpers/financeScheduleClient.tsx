@@ -16,3 +16,6 @@ export const addTeachingLoad=(x:any)=>call<{load:any}>("/_api/teaching-loads/cre
 export const generateTimetable=(x:{institutionId:string;academicYear:string})=>call<{created:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/generate",x);
 
 export const importTimetableRows=(x:{institutionId:string;academicYear:string;rows:Array<{grade:number;section:string;weekday:number;lessonNumber:number;subject:string;teacherName:string;room?:string}>})=>call<{imported:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/import",x);
+
+export const getStaffAvailability=async(institutionId:string,academicYear:string)=>(await call<{slots:any[]}>(`/_api/staff-availability/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).slots||[];
+export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);

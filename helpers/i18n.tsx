@@ -4,7 +4,8 @@ export type AppLanguage = "tg" | "ru" | "en" | "uz" | "fa";
 
 const messages: Record<AppLanguage, Record<string, string>> = {
   tg: {
-    "language.name":"Забон", "nav.overview":"Шарҳи умумӣ", "nav.institutions":"Муассисаҳо",
+    "language.name":"Забон",
+    "finance.tariffsTitle":"Тарификатсия","finance.tariffsSubtitle":"Меъёрҳои маош ва маълумоти тахассусии кормандон","finance.payrollTitle":"Табели маош","finance.payrollSubtitle":"Ҳисоб ва сабти музди меҳнати кормандон","finance.timetableTitle":"Ҷадвали дарсӣ","finance.timetableSubtitle":"Тартибдиҳӣ ва идоракунии ҷадвали дарсҳо","common.printA4":"Чопи A4","common.mainDashboard":"Панели асосӣ","common.institution":"Муассиса", "nav.overview":"Шарҳи умумӣ", "nav.institutions":"Муассисаҳо",
     "nav.staff":"Омӯзгорон ва кормандон", "nav.students":"Хонандагон ва донишҷӯён",
     "nav.classes":"Синфҳо", "nav.timetable":"Ҷадвали дарсҳо", "nav.attendance":"Давомоти хонандагон",
     "nav.materials":"Мавод ва дарсҳо", "nav.payroll":"Ҳисоб ва маош", "nav.tariffs":"Тарификатсия",
@@ -27,7 +28,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "auth.noAccount":"Ҳанӯз ҳисоб надоред?", "auth.register":"Бақайдгирӣ"
   },
   ru: {
-    "language.name":"Язык", "nav.overview":"Обзор", "nav.institutions":"Учреждения",
+    "language.name":"Язык",
+    "finance.tariffsTitle":"Тарификация","finance.tariffsSubtitle":"Нормы оплаты и квалификационные сведения сотрудников","finance.payrollTitle":"Зарплатная ведомость","finance.payrollSubtitle":"Расчёт и учёт оплаты труда сотрудников","finance.timetableTitle":"Расписание уроков","finance.timetableSubtitle":"Составление и управление расписанием уроков","common.printA4":"Печать A4","common.mainDashboard":"Главная панель","common.institution":"Учреждение", "nav.overview":"Обзор", "nav.institutions":"Учреждения",
     "nav.staff":"Учителя и сотрудники", "nav.students":"Ученики и студенты", "nav.classes":"Классы",
     "nav.timetable":"Расписание уроков", "nav.attendance":"Посещаемость", "nav.materials":"Материалы и уроки",
     "nav.payroll":"Расчёт и зарплата", "nav.tariffs":"Тарификация", "nav.reports":"Отчёты",
@@ -49,7 +51,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "auth.noAccount":"Ещё нет аккаунта?", "auth.register":"Регистрация"
   },
   en: {
-    "language.name":"Language", "nav.overview":"Overview", "nav.institutions":"Institutions",
+    "language.name":"Language",
+    "finance.tariffsTitle":"Tariffing","finance.tariffsSubtitle":"Pay rates and staff qualification details","finance.payrollTitle":"Payroll register","finance.payrollSubtitle":"Staff salary calculation and records","finance.timetableTitle":"Timetable","finance.timetableSubtitle":"Create and manage the lesson timetable","common.printA4":"Print A4","common.mainDashboard":"Main dashboard","common.institution":"Institution", "nav.overview":"Overview", "nav.institutions":"Institutions",
     "nav.staff":"Teachers and staff", "nav.students":"Pupils and students", "nav.classes":"Classes",
     "nav.timetable":"Timetable", "nav.attendance":"Attendance", "nav.materials":"Materials and lessons",
     "nav.payroll":"Payroll", "nav.tariffs":"Tariffing", "nav.reports":"Reports",
@@ -71,7 +74,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "auth.noAccount":"Don't have an account yet?", "auth.register":"Register"
   },
   uz: {
-    "language.name":"Til", "nav.overview":"Umumiy ko‘rinish", "nav.institutions":"Muassasalar",
+    "language.name":"Til",
+    "finance.tariffsTitle":"Tarifikatsiya","finance.tariffsSubtitle":"Ish haqi me’yorlari va xodimlarning malaka ma’lumotlari","finance.payrollTitle":"Ish haqi jadvali","finance.payrollSubtitle":"Xodimlar ish haqini hisoblash va qayd etish","finance.timetableTitle":"Dars jadvali","finance.timetableSubtitle":"Dars jadvalini tuzish va boshqarish","common.printA4":"A4 chop etish","common.mainDashboard":"Asosiy panel","common.institution":"Muassasa", "nav.overview":"Umumiy ko‘rinish", "nav.institutions":"Muassasalar",
     "nav.staff":"O‘qituvchilar va xodimlar", "nav.students":"O‘quvchilar va talabalar", "nav.classes":"Sinflar",
     "nav.timetable":"Dars jadvali", "nav.attendance":"Davomat", "nav.materials":"Materiallar va darslar",
     "nav.payroll":"Hisob-kitob va maosh", "nav.tariffs":"Tarifikatsiya", "nav.reports":"Hisobotlar",
@@ -93,7 +97,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "auth.noAccount":"Hali hisobingiz yo‘qmi?", "auth.register":"Ro‘yxatdan o‘tish"
   },
   fa: {
-    "language.name":"زبان", "nav.overview":"نمای کلی", "nav.institutions":"مؤسسات",
+    "language.name":"زبان",
+    "finance.tariffsTitle":"تعرفه‌بندی","finance.tariffsSubtitle":"معیارهای معاش و اطلاعات تخصصی کارکنان","finance.payrollTitle":"جدول معاش","finance.payrollSubtitle":"محاسبه و ثبت معاش کارکنان","finance.timetableTitle":"برنامهٔ درسی","finance.timetableSubtitle":"تنظیم و مدیریت برنامهٔ درسی","common.printA4":"چاپ A4","common.mainDashboard":"داشبورد اصلی","common.institution":"مؤسسه", "nav.overview":"نمای کلی", "nav.institutions":"مؤسسات",
     "nav.staff":"معلمان و کارکنان", "nav.students":"دانش‌آموزان و دانشجویان", "nav.classes":"صنف‌ها",
     "nav.timetable":"برنامهٔ درسی", "nav.attendance":"حاضری", "nav.materials":"مواد و درس‌ها",
     "nav.payroll":"محاسبه و معاش", "nav.tariffs":"تعرفه‌بندی", "nav.reports":"گزارش‌ها",

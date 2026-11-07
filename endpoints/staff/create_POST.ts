@@ -12,6 +12,7 @@ const schema = z.object({
   phone: z.string().trim().max(40).optional().default(""),
   email: z.string().trim().email().max(180).optional().or(z.literal("")),
   subject: z.string().trim().max(120).optional().default(""),
+  workloadHours: z.number().min(0).max(60).optional(),
 });
 
 export async function handle(request: Request) {
@@ -33,8 +34,8 @@ export async function handle(request: Request) {
         institutionId: input.institutionId, fullName: input.fullName,
         personnelNumber: input.personnelNumber || null, positionTitle: input.positionTitle,
         employmentType: input.employmentType, phone: input.phone || null,
-        email: input.email || null, subject: input.subject || null, createdBy: user.id,
-      }).returning(["id","institutionId","fullName","personnelNumber","positionTitle","employmentType","phone","email","subject","isActive","createdAt"]).executeTakeFirstOrThrow();
+        email: input.email || null, subject: input.subject || null, workloadHours: input.workloadHours ?? null, createdBy: user.id,
+      }).returning(["id","institutionId","fullName","personnelNumber","positionTitle","employmentType","phone","email","subject","workloadHours","isActive","createdAt"]).executeTakeFirstOrThrow();
       await trx.insertInto("institutionAuditLogs").values({
         institutionId: input.institutionId, actorUserId: user.id, action: "staff.created",
         entityType: "institution_staff", entityId: row.id,

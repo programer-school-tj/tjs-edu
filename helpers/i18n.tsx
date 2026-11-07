@@ -25,7 +25,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "dashboard.pendingTitle":"Дархостҳои нав", "dashboard.online":"ОНЛАЙН",
     "auth.welcome":"ХУШ ОМАДЕД", "auth.title":"Ба система ворид шавед",
     "auth.description":"Барои идоракунии муассисаи таълимии худ ба ҳисоби корбарӣ ворид шавед.",
-    "auth.noAccount":"Ҳанӯз ҳисоб надоред?", "auth.register":"Бақайдгирӣ"
+    "auth.noAccount":"Ҳанӯз ҳисоб надоред?", "auth.register":"Бақайдгирӣ",
+    "attendance.title":"Давомоти хонандагон","attendance.subtitle":"Қайд ва нигоҳдории ҳозиршавии ҳаррӯзаи хонандагон","attendance.institution":"Муассиса","attendance.class":"Синф","attendance.date":"Сана","attendance.list":"Рӯйхати хонандагон","attendance.markAll":"Ҳамаро ҳозир қайд кун","attendance.save":"Сабти давомот","reports.title":"Ҳисоботҳои муассиса","reports.subtitle":"Ҷамъбасти кадрҳо, хонандагон, тарифҳо ва маош","reports.month":"Моҳи ҳисоботӣ","reports.year":"Соли таҳсил","reports.staff":"Ҳисоботи кадрҳо","reports.finance":"Ҳисоботи молиявӣ"
   },
   ru: {
     "language.name":"Язык",
@@ -48,7 +49,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "dashboard.pendingTitle":"Новые заявки", "dashboard.online":"ОНЛАЙН",
     "auth.welcome":"ДОБРО ПОЖАЛОВАТЬ", "auth.title":"Войдите в систему",
     "auth.description":"Войдите в учётную запись для управления своим учебным заведением.",
-    "auth.noAccount":"Ещё нет аккаунта?", "auth.register":"Регистрация"
+    "auth.noAccount":"Ещё нет аккаунта?", "auth.register":"Регистрация",
+    "attendance.title":"Посещаемость учащихся","attendance.subtitle":"Ежедневная отметка и сохранение посещаемости","attendance.institution":"Учреждение","attendance.class":"Класс","attendance.date":"Дата","attendance.list":"Список учащихся","attendance.markAll":"Отметить всех присутствующими","attendance.save":"Сохранить посещаемость","reports.title":"Отчёты учреждения","reports.subtitle":"Сводка по кадрам, учащимся, тарифам и зарплате","reports.month":"Отчётный месяц","reports.year":"Учебный год","reports.staff":"Кадровый отчёт","reports.finance":"Финансовый отчёт"
   },
   en: {
     "language.name":"Language",
@@ -71,7 +73,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "dashboard.pendingTitle":"New requests", "dashboard.online":"ONLINE",
     "auth.welcome":"WELCOME", "auth.title":"Sign in to your account",
     "auth.description":"Sign in to manage your educational institution.",
-    "auth.noAccount":"Don't have an account yet?", "auth.register":"Register"
+    "auth.noAccount":"Don't have an account yet?", "auth.register":"Register",
+    "attendance.title":"Student attendance","attendance.subtitle":"Record and save daily student attendance","attendance.institution":"Institution","attendance.class":"Class","attendance.date":"Date","attendance.list":"Student list","attendance.markAll":"Mark everyone present","attendance.save":"Save attendance","reports.title":"Institution reports","reports.subtitle":"Summary of staff, students, tariffs and payroll","reports.month":"Reporting month","reports.year":"Academic year","reports.staff":"Staff report","reports.finance":"Financial report"
   },
   uz: {
     "language.name":"Til",
@@ -94,7 +97,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "dashboard.pendingTitle":"Yangi arizalar", "dashboard.online":"ONLAYN",
     "auth.welcome":"XUSH KELIBSIZ", "auth.title":"Tizimga kiring",
     "auth.description":"Ta’lim muassasangizni boshqarish uchun hisobingizga kiring.",
-    "auth.noAccount":"Hali hisobingiz yo‘qmi?", "auth.register":"Ro‘yxatdan o‘tish"
+    "auth.noAccount":"Hali hisobingiz yo‘qmi?", "auth.register":"Ro‘yxatdan o‘tish",
+    "attendance.title":"O‘quvchilar davomati","attendance.subtitle":"Kundalik davomatni qayd etish va saqlash","attendance.institution":"Muassasa","attendance.class":"Sinf","attendance.date":"Sana","attendance.list":"O‘quvchilar ro‘yxati","attendance.markAll":"Barchasini bor deb belgilash","attendance.save":"Davomatni saqlash","reports.title":"Muassasa hisobotlari","reports.subtitle":"Xodimlar, o‘quvchilar, tariflar va ish haqi bo‘yicha jamlanma","reports.month":"Hisobot oyi","reports.year":"O‘quv yili","reports.staff":"Kadrlar hisoboti","reports.finance":"Moliyaviy hisobot"
   },
   fa: {
     "language.name":"زبان",
@@ -117,7 +121,8 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "dashboard.pendingTitle":"درخواست‌های جدید", "dashboard.online":"آنلاین",
     "auth.welcome":"خوش آمدید", "auth.title":"وارد سیستم شوید",
     "auth.description":"برای مدیریت مؤسسهٔ آموزشی خود وارد حساب کاربری شوید.",
-    "auth.noAccount":"هنوز حساب ندارید؟", "auth.register":"ثبت‌نام"
+    "auth.noAccount":"هنوز حساب ندارید؟", "auth.register":"ثبت‌نام",
+    "attendance.title":"حاضری دانش‌آموزان","attendance.subtitle":"ثبت و نگهداری حاضری روزانهٔ دانش‌آموزان","attendance.institution":"مؤسسه","attendance.class":"صنف","attendance.date":"تاریخ","attendance.list":"فهرست دانش‌آموزان","attendance.markAll":"همه را حاضر ثبت کن","attendance.save":"ذخیرهٔ حاضری","reports.title":"گزارش‌های مؤسسه","reports.subtitle":"خلاصهٔ کارکنان، دانش‌آموزان، تعرفه‌ها و معاش","reports.month":"ماه گزارش","reports.year":"سال تحصیلی","reports.staff":"گزارش کارکنان","reports.finance":"گزارش مالی"
   }
 };
 

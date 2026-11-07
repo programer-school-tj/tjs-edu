@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getClasses } from "../helpers/educationClient";
 import { getStaff } from "../helpers/staffClient";
-import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows } from "../helpers/financeScheduleClient";
+import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
@@ -20,6 +20,11 @@ export default function TimetablePage() {
   const [staff, setStaff] = useState<any[]>([]);
   const [rows, setRows] = useState<any[]>([]);
   const [loads, setLoads] = useState<any[]>([]);
+  const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
+  const [availabilityStaffId, setAvailabilityStaffId] = useState("");
+  const [availabilityWeekday, setAvailabilityWeekday] = useState("5");
+  const [availabilityLesson, setAvailabilityLesson] = useState("0");
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [loadBusy, setLoadBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [importStatus, setImportStatus] = useState("");
@@ -45,13 +50,14 @@ export default function TimetablePage() {
       setClasses(classRows);
       setGridClassId((current) => current || classRows[0]?.id || "");
       setStaff(staffRows.filter((item: any) => item.isActive));
+      setAvailabilityStaffId((current) => current || staffRows.find((item: any) => item.isActive)?.id || "");
       setF((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
       setLoadForm((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
     }).catch((error) => setErr(error.message));
   }, [school]);
 
   useEffect(() => {
-    if (school) void Promise.all([getTimetable(school, year), getTeachingLoads(school, year)]).then(([entries, allocations]) => { setRows(entries); setLoads(allocations); }).catch((error) => setErr(error.message));
+    if (school) void Promise.all([getTimetable(school, year), getTeachingLoads(school, year), getStaffAvailability(school, year)]).then(([entries, allocations, availability]) => { setRows(entries); setLoads(allocations); setAvailabilitySlots(availability); }).catch((error) => setErr(error.message));
   }, [school, year]);
 
   const selectedTeacher = staff.find((item) => item.id === f.staffId);
@@ -66,6 +72,8 @@ export default function TimetablePage() {
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const setLoad = (key: string, value: string) => setLoadForm((current) => ({ ...current, [key]: value }));
   const saveLoad = async (event: React.FormEvent) => { event.preventDefault(); setLoadBusy(true); setErr(""); try { await addTeachingLoad({ institutionId: school, ...loadForm, weeklyHours: Number(loadForm.weeklyHours), academicYear: year }); setLoads(await getTeachingLoads(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : "Сарборӣ сабт нашуд."); } finally { setLoadBusy(false); } };
+  const saveAvailability = async (event: React.FormEvent) => { event.preventDefault(); if (!availabilityStaffId) return; setAvailabilityBusy(true); setErr(""); try { const weekday = Number(availabilityWeekday); const lessonNumber = Number(availabilityLesson); const current = availabilitySlots.filter((slot) => slot.staffId === availabilityStaffId && !(slot.weekday === weekday && (lessonNumber === 0 || slot.lessonNumber === 0 || slot.lessonNumber === lessonNumber))); const next = [...current, { weekday, lessonNumber }]; await saveStaffAvailability({ institutionId: school, staffId: availabilityStaffId, academicYear: year, slots: next.map((slot) => ({ weekday: slot.weekday, lessonNumber: slot.lessonNumber })) }); setAvailabilitySlots(await getStaffAvailability(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : "Қоидаи дастрасӣ сабт нашуд."); } finally { setAvailabilityBusy(false); } };
+  const removeAvailability = async (slot: any) => { setAvailabilityBusy(true); setErr(""); try { const next = availabilitySlots.filter((item) => item.staffId === slot.staffId && item.id !== slot.id); await saveStaffAvailability({ institutionId: school, staffId: slot.staffId, academicYear: year, slots: next.map((item) => ({ weekday: item.weekday, lessonNumber: item.lessonNumber })) }); setAvailabilitySlots(await getStaffAvailability(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : "Қоида ҳазф нашуд."); } finally { setAvailabilityBusy(false); } };
   const generate = async () => { setLoadBusy(true); setErr(""); try { const result = await generateTimetable({ institutionId: school, academicYear: year }); setRows(await getTimetable(school, year)); window.alert(`Ҷадвал сохта шуд. Дарсҳои нав: ${result.created}`); } catch (error) { setErr(error instanceof Error ? error.message : "Ҷадвал сохта нашуд."); } finally { setLoadBusy(false); } };
 
   const downloadImportTemplate = async () => {
@@ -181,6 +189,12 @@ export default function TimetablePage() {
       <label>Соат дар як ҳафта<input required type="number" min="1" max="36" step="1" value={loadForm.weeklyHours} onChange={(event) => setLoad("weeklyHours", event.target.value)} /></label>
       <button disabled={loadBusy || !school || !loadForm.classId || !loadForm.staffId || loadForm.subject.trim().length < 2}>{loadBusy ? "Сабт..." : "Сабти сарборӣ"}</button>
     </form><div className={styles.table}><table><thead><tr><th>СИНФ</th><th>ФАН</th><th>ОМӮЗГОР</th><th>СОАТ/ҲАФТА</th></tr></thead><tbody>{loads.map((row) => <tr key={row.id}><td>{row.grade}{row.section}</td><td>{row.subject}</td><td>{row.teacherName}</td><td>{Number(row.weeklyHours)}</td></tr>)}</tbody></table>{!loads.length && <p>Сарбории фаннӣ ҳоло ворид нашудааст.</p>}</div><button type="button" disabled={loadBusy || !loads.length} onClick={generate}>⚙️ Тартиб додани ҷадвали худкор</button></section>
+    <section className={styles.panel}><h2>Рӯзҳои истироҳат ва дастрасии омӯзгорон</h2><p className={styles.note}>Барои ҳар омӯзгор рӯзи пурраи истироҳат ё соати муайяни бандро интихоб кунед. Генератори худкор, воридоти Excel ва иловаи дастӣ ин маҳдудиятҳоро риоя мекунанд. «0» маънои тамоми рӯзро дорад.</p><form onSubmit={saveAvailability}>
+      <label>Омӯзгор<select required value={availabilityStaffId} onChange={(event) => setAvailabilityStaffId(event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>
+      <label>Рӯзи ҳафта<select value={availabilityWeekday} onChange={(event) => setAvailabilityWeekday(event.target.value)}>{days.slice(1).map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label>
+      <label>Вақти банд<select value={availabilityLesson} onChange={(event) => setAvailabilityLesson(event.target.value)}><option value="0">Тамоми рӯз · истироҳат</option>{[1,2,3,4,5,6].map((n) => <option key={n} value={n}>{n}-ум соат</option>)}</select></label>
+      <button disabled={availabilityBusy || !availabilityStaffId}>{availabilityBusy ? "Сабт..." : "Сабти маҳдудият"}</button>
+    </form><div className={styles.table}><table><thead><tr><th>ОМӮЗГОР</th><th>РӮЗ</th><th>МАҲДУДИЯТ</th><th>АМАЛ</th></tr></thead><tbody>{availabilitySlots.map((slot) => <tr key={slot.id}><td>{slot.teacherName}</td><td>{days[slot.weekday]}</td><td>{slot.lessonNumber === 0 ? "Тамоми рӯз · истироҳат" : slot.lessonNumber + "-ум соат"}</td><td><button type="button" disabled={availabilityBusy} onClick={() => void removeAvailability(slot)}>Ҳазф</button></td></tr>)}</tbody></table>{!availabilitySlots.length && <p>Барои омӯзгорон ҳоло маҳдудияти иловагӣ муайян нашудааст.</p>}</div></section>
     <section className={styles.panel}><h2>Иловаи дарс</h2><form onSubmit={save}>
       <label>Синф<select required value={f.classId} onChange={(event) => set("classId", event.target.value)}>{classes.map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>
       <label>Омӯзгор<select required value={f.staffId} onChange={(event) => set("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select>{selectedTeacher && teacherRemainingHours !== null && <small className={styles.note}>Сарбории тасдиқшуда: {Number(selectedTeacher.workloadHours)} соат · Дар ҷадвал: {teacherScheduledHours} · Боқимонда: {teacherRemainingHours} соат.</small>}</label>

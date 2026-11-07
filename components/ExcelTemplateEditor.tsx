@@ -16,6 +16,7 @@ type Props = {
   maxRows: number;
   maxColumns: number;
   editableThroughRow?: number;
+  prefillCells?: Record<string, string>;
   orientation?: "landscape" | "portrait";
   printScale?: number;
 };
@@ -120,6 +121,8 @@ function getMergeMap(worksheet: ExcelJS.Worksheet) {
 export function ExcelTemplateEditor(props: Props) {
   const workbookRef = useRef<ExcelJS.Workbook | null>(null);
   const worksheetRef = useRef<ExcelJS.Worksheet | null>(null);
+  const savedCellsRef = useRef<Record<string, string>>({});
+  const dirtyCellsRef = useRef<Record<string, string>>({});
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -146,8 +149,15 @@ export function ExcelTemplateEditor(props: Props) {
         const originalTitle = cellText(titleCell.value);
         if (originalTitle) titleCell.value = originalTitle.replace(/(?:ЯНВАР|ФЕВРАЛ|МАРТ|АПРЕЛ|МАЙ|ИЮН|ИЮЛ|АВГУСТ|СЕНТЯБР|ОКТЯБР|НОЯБР|ДЕКАБР)\s+СОЛИ\s+20[0-9]{2}/i, `${monthNames[Number(month) - 1]} СОЛИ ${year}`);
       }
+      Object.entries(props.prefillCells || {}).forEach(([address, value]) => {
+        if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(address) || typeof value !== "string") return;
+        const target = worksheet.getCell(address);
+        if (!isFormulaCell(target)) target.value = value;
+      });
       const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey);
-      const cells = saved?.payload?.cells || {};
+      const cells = (saved?.payload?.cells || {}) as Record<string, string>;
+      savedCellsRef.current = { ...cells };
+      dirtyCellsRef.current = {};
       Object.entries(cells).forEach(([address, value]) => {
         if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(address) || typeof value !== "string") return;
         const target = worksheet.getCell(address);
@@ -160,7 +170,7 @@ export function ExcelTemplateEditor(props: Props) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Бланка кушода нашуд.");
     } finally { setBusy(false); }
-  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, periodKey]);
+  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, periodKey]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -175,6 +185,7 @@ export function ExcelTemplateEditor(props: Props) {
     const cell = worksheetRef.current?.getCell(address);
     if (!cell) return;
     cell.value = value;
+    dirtyCellsRef.current[address] = value;
     setDirty(true);
   };
 
@@ -182,16 +193,12 @@ export function ExcelTemplateEditor(props: Props) {
     if (!worksheetRef.current || !props.institutionId) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const cells: Record<string, string> = {};
-      for (let row = props.headerRows + 1; row <= (props.editableThroughRow ?? props.maxRows); row++) {
-        for (let col = 1; col <= props.maxColumns; col++) {
-          const address = `${colLetter(col)}${row}`;
-          const cell = worksheetRef.current.getCell(address);
-          // Formula cells stay in the original workbook and are recalculated by Excel.
-          if (!isFormulaCell(cell)) cells[address] = cellText(cell.value);
-        }
-      }
-      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: "2026-11-05-v1", cells });
+      // Persist only user-edited cells. This keeps auto-filled staff data dynamic
+      // for newly added employees while preserving intentional manual clearing.
+      const cells = { ...savedCellsRef.current, ...dirtyCellsRef.current };
+      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: "2026-11-07-v2", cells });
+      savedCellsRef.current = cells;
+      dirtyCellsRef.current = {};
       setDirty(false); setNotice("Тағйиротҳо дар пойгоҳи додаҳо сабт шуданд.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Сабт иҷро нашуд.");

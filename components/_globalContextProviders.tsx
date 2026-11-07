@@ -5,6 +5,7 @@ import { TooltipProvider } from "./Tooltip";
 import { Toaster } from "./Toaster";
 import { ScrollToHashElement } from "./ScrollToHashElement";
 import { AuthProvider } from "../helpers/useAuth";
+import { LanguageProvider } from "../helpers/i18n";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ export const GlobalContextProviders = ({
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <LanguageProvider>
         <ThemeModeProvider>
           <ScrollToHashElement />
           <TooltipProvider>
@@ -30,6 +32,7 @@ export const GlobalContextProviders = ({
             <Toaster />
           </TooltipProvider>
         </ThemeModeProvider>
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

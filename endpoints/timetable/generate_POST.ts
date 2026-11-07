@@ -27,29 +27,39 @@ export async function handle(request: Request) {
     if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассиса метавонад ҷадвал созад." }), { status: 403 });
 
     const result = await withPlanQuota(x.institutionId, "timetable", async (trx) => {
-      const [loads, staff, classes, existing] = await Promise.all([
+      const [loads, staff, existing] = await Promise.all([
         trx.selectFrom("institutionTeachingLoads").innerJoin("institutionClasses", "institutionClasses.id", "institutionTeachingLoads.classId")
           .select(["institutionTeachingLoads.id", "institutionTeachingLoads.classId", "institutionTeachingLoads.staffId", "institutionTeachingLoads.subject", "institutionTeachingLoads.weeklyHours", "institutionClasses.grade"])
           .where("institutionTeachingLoads.institutionId", "=", x.institutionId).where("institutionTeachingLoads.academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaff").select(["id", "workloadHours"]).where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
-        trx.selectFrom("institutionClasses").select(["id", "grade"]).where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionTimetableEntries").select(["id", "classId", "staffId", "subject", "weekday", "lessonNumber", "shiftNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
       ]);
       if (!loads.length) throw new Error("NO_TEACHING_LOADS");
       const staffMap = new Map(staff.map((row) => [row.id, row]));
-      const classMap = new Map(classes.map((row) => [row.id, row]));
       const loadHours = new Map<string, number>();
+      const remainingLoadCapacity = new Map<string, number>();
       for (const load of loads) {
         const hours = Number(load.weeklyHours);
         if (!Number.isInteger(hours)) throw new Error("FRACTIONAL_LOAD");
         loadHours.set(load.staffId, (loadHours.get(load.staffId) || 0) + hours);
-      }
-      for (const [staffId, hours] of loadHours) {
-        const approved = staffMap.get(staffId)?.workloadHours;
-        if (approved !== null && approved !== undefined && hours > Number(approved)) throw new Error("LOAD_EXCEEDS_APPROVED");
+        const key = load.classId + ":" + load.staffId + ":" + load.subject.trim().toLocaleLowerCase();
+        remainingLoadCapacity.set(key, (remainingLoadCapacity.get(key) || 0) + hours);
       }
 
+      // Existing entries outside defined teaching loads also consume approved workload.
+      const extraExistingHours = new Map<string, number>();
+      for (const entry of existing) {
+        const key = entry.classId + ":" + entry.staffId + ":" + entry.subject.trim().toLocaleLowerCase();
+        const capacity = remainingLoadCapacity.get(key) || 0;
+        if (capacity > 0) remainingLoadCapacity.set(key, capacity - 1);
+        else extraExistingHours.set(entry.staffId, (extraExistingHours.get(entry.staffId) || 0) + 1);
+      }
+      for (const staffId of new Set([...loadHours.keys(), ...extraExistingHours.keys()])) {
+        const planned = (loadHours.get(staffId) || 0) + (extraExistingHours.get(staffId) || 0);
+        const approved = staffMap.get(staffId)?.workloadHours;
+        if (approved !== null && approved !== undefined && planned > Number(approved)) throw new Error("LOAD_EXCEEDS_APPROVED");
+      }
       const tasks: Task[] = [];
       for (const load of loads) {
         const weeklyHours = Number(load.weeklyHours);

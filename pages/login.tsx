@@ -1,12 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { GraduationCap, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import { BrandMark } from "../components/BrandMark";
 import { PasswordLoginForm } from "../components/PasswordLoginForm";
 import styles from "./login.module.css";
 
 export default function LoginPage() {
   return <main className={styles.authPage}>
-    <div className={styles.authBrand}><div className={styles.brandMark}><GraduationCap size={26} /></div><div><strong>TJS <span>Edu</span></strong><small>МАОРИФИ ТОҶИКИСТОН</small></div></div>
+    <div className={styles.authBrand}><BrandMark size={43} className={styles.brandMarkSvg} /><div><strong>TJS <span>Edu</span></strong><small>МАОРИФИ ТОҶИКИСТОН</small></div></div>
     <section className={styles.authCard}>
       <div className={styles.authIcon}><ShieldCheck size={22} /></div>
       <div className={styles.kicker}>ХУШ ОМАДЕД</div>

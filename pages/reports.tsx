@@ -14,14 +14,14 @@ export default function ReportsPage(){
  const downloadPayrollCsv=()=>{
   const safe=(value:unknown)=>{
    const raw=String(value??"");
-   const guarded=/^[=+@\\-\\t\\r]/.test(raw)?"'"+raw:raw;
+   const guarded=(/^[=+@-]/.test(raw)||raw.startsWith("\t")||raw.startsWith("\r"))?"'"+raw:raw;
    return '"'+guarded.replace(/"/g,'""')+'"';
   };
   const data=[
    ["Корманд","Вазифа","Моҳи ҳисоботӣ","Ҳисобшуда (сомонӣ)","Нигоҳдошт (сомонӣ)","Ба даст (сомонӣ)"],
    ...payroll.map(row=>[row.fullName,row.positionTitle,month,Number(row.grossAmount||0).toFixed(2),Number(row.deductions||0).toFixed(2),Number(row.netAmount||0).toFixed(2)])
   ];
-  const csv="\\uFEFF"+data.map(row=>row.map(safe).join(";")).join("\\r\\n");
+  const csv="\uFEFF"+data.map(row=>row.map(safe).join(";")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob);
   const link=document.createElement("a");

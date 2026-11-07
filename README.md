@@ -2,21 +2,26 @@
 
 Низоми рақамии идоракунии муассисаҳои таълимии Тоҷикистон.
 
-## Stack
-- React + TypeScript + Vite
-- React Router
-- PostgreSQL/Kysely (server integration is being migrated)
-- ExcelJS for institution templates
-- PWA application shell (offline shell cache is enabled; offline data queue is not yet enabled)
+## Талабот
+- Node.js 22 ё навтар
+- PostgreSQL 15 ё навтар
+- Махзани маълумоти алоҳида барои TJS Edu
 
-## Local development
-1. Install Node.js 20.19+ or 22.12+.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env` and configure a dedicated TJS Edu database before enabling API routes.
-4. Run `npm run dev`.
-5. Run `npm run build` to create `dist/`.
+## Оғози маҳаллӣ
+1. Репозиторийро нусхабардорӣ кунед.
+2. Вобастагиҳоро насб кунед: `npm install`
+3. Файли `.env.example`-ро ба `.env` нусха карда, `DATABASE_URL` ва `SESSION_SECRET`-ро пур кунед.
+4. Барои базаи нав мигратсияро иҷро кунед: `npm run db:migrate`
+5. Сервери API: `npm run start:api`
+6. Дар терминали дигар қисми веб: `npm run dev`
 
-The Vite development server proxies `/api` to `http://localhost:3001`. The independent API server and database schema are separate migration steps and are not considered production-ready yet.
+API дар порти 3001 кор мекунад. Vite дар вақти рушд масири `/_api`-ро ба API равона мекунад. Санҷиши саломатии API: `http://localhost:3001/health`.
 
-## Safety
-Never commit `.env`, database credentials, session secrets, password hashes, or real student/staff data. TJS Edu must use its own database project, separate from ProgramerTJ.
+## Амният
+- Барои TJS Edu махзани мустақил созед. Маълумоти ProgramerTJ ё дигар лоиҳаҳоро истифода накунед.
+- `.env` ва паролҳо/калидҳоро ба GitHub нафиристед.
+- Муассисаи нав бо ҳолати `pending` сабт мешавад; фаъолсозӣ бояд баъди тасдиқи маъмур анҷом ёбад.
+- Пеш аз истеҳсол HTTPS, нусхаи эҳтиётии мунтазам, маҳдудкунии дархостҳои воридшавӣ ва сиёсати дастрасии муассисаҳоро танзим кунед.
+
+## Мигратсияи база
+Файли `db/migrations/001_initial_schema.sql` сохтори ибтидоии 18 ҷадвалро месозад. Скрипт барои базаи тоза пешбинӣ шудааст ва фармонҳои асосӣ такроран иҷро шуданашонро таҳаммул мекунанд.

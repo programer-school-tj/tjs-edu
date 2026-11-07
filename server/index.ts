@@ -12,7 +12,7 @@ const methods: Record<string, string> = {
 };
 
 function endpointPath(pathname: string, method: string) {
-  const parts = pathname.replace(/^\\/_api\\//, "").split("/").filter(Boolean);
+  const parts = pathname.replace(/^\/_api\//, "").split("/").filter(Boolean);
   if (parts.length !== 2 || !methods[method]) return null;
   const [group, action] = parts;
   if (!/^[a-z0-9_]+$/i.test(group) || !/^[a-z0-9_]+$/i.test(action)) return null;

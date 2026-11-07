@@ -123,6 +123,7 @@ export function ExcelTemplateEditor(props: Props) {
   const worksheetRef = useRef<ExcelJS.Worksheet | null>(null);
   const savedCellsRef = useRef<Record<string, string>>({});
   const dirtyCellsRef = useRef<Record<string, string>>({});
+  const documentKeyRef = useRef("");
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -133,7 +134,8 @@ export function ExcelTemplateEditor(props: Props) {
 
   const load = useCallback(async () => {
     if (!props.institutionId) return;
-    const pendingEdits = { ...dirtyCellsRef.current };
+    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey].join("|");
+    const pendingEdits = documentKeyRef.current === documentKey ? { ...dirtyCellsRef.current } : {};
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
       const response = await fetch(props.templateUrl);
@@ -169,6 +171,7 @@ export function ExcelTemplateEditor(props: Props) {
         if (!isFormulaCell(target)) target.value = value;
       });
       dirtyCellsRef.current = pendingEdits;
+      documentKeyRef.current = documentKey;
       workbookRef.current = workbook;
       worksheetRef.current = worksheet;
       setDirty(Object.keys(pendingEdits).length > 0); setReady(true); setRevision((v) => v + 1);

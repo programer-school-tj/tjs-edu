@@ -10,8 +10,25 @@ export default function ReportsPage(){
  const nav=useNavigate();const[schools,setSchools]=useState<any[]>([]);const[school,setSchool]=useState("");const[month,setMonth]=useState("2026-11");const[year,setYear]=useState("2026-2027");const[staff,setStaff]=useState<any[]>([]);const[classes,setClasses]=useState<any[]>([]);const[students,setStudents]=useState<any[]>([]);const[payroll,setPayroll]=useState<any[]>([]);const[tariffs,setTariffs]=useState<any[]>([]);const[timetable,setTimetable]=useState<any[]>([]);const[busy,setBusy]=useState(false);const[err,setErr]=useState("");
  useEffect(()=>{void getInstitutions().then(a=>{const v=a.filter((x:any)=>x.status==="approved");setSchools(v);if(v[0])setSchool(v[0].id);}).catch(e=>setErr(e.message));},[]);
  useEffect(()=>{if(!school)return;let live=true;setBusy(true);setErr("");void Promise.all([getStaff(school),getClasses(school),getStudents(school),getPayroll(school,month),getTariffs(school),getTimetable(school,year)]).then(([s,c,st,p,t,tt])=>{if(!live)return;setStaff(s);setClasses(c);setStudents(st);setPayroll(p);setTariffs(t);setTimetable(tt);}).catch(e=>{if(live)setErr(e instanceof Error?e.message:"Ҳисобот бор карда нашуд.");}).finally(()=>{if(live)setBusy(false);});return()=>{live=false};},[school,month,year]);
- const money=(n:number)=>Number(n||0).toLocaleString("tg-TJ",{minimumFractionDigits:2,maximumFractionDigits:2});const gross=payroll.reduce((a,r)=>a+Number(r.grossAmount||0),0);const net=payroll.reduce((a,r)=>a+Number(r.netAmount||0),0);const deductions=payroll.reduce((a,r)=>a+Number(r.deductions||0),0);
- return <main className={styles.page}><div className={styles.wrap}><header><div><small>TJS EDU · ҲИСОБОТ ВА ТАҲЛИЛ</small><h1>Ҳисоботҳои муассиса</h1><p>Ҷамъбасти кадрҳо, хонандагон, тарифҳо ва маош</p></div><div className={styles.actions}><button className={styles.print} onClick={()=>window.print()}>🖨 Чопи ҳисобот</button><button onClick={()=>nav("/")}>← Панели асосӣ</button></div></header>
+ const money=(n:number)=>Number(n||0).toLocaleString("tg-TJ",{minimumFractionDigits:2,maximumFractionDigits:2});
+ const downloadPayrollCsv=()=>{
+  const safe=(value:unknown)=>{
+   const raw=String(value??"");
+   const guarded=/^[=+@\\-\\t\\r]/.test(raw)?"'"+raw:raw;
+   return '"'+guarded.replace(/"/g,'""')+'"';
+  };
+  const data=[
+   ["Корманд","Вазифа","Моҳи ҳисоботӣ","Ҳисобшуда (сомонӣ)","Нигоҳдошт (сомонӣ)","Ба даст (сомонӣ)"],
+   ...payroll.map(row=>[row.fullName,row.positionTitle,month,Number(row.grossAmount||0).toFixed(2),Number(row.deductions||0).toFixed(2),Number(row.netAmount||0).toFixed(2)])
+  ];
+  const csv="\\uFEFF"+data.map(row=>row.map(safe).join(";")).join("\\r\\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;link.download="TJS-Edu-maosh-"+month+".csv";
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+ };const gross=payroll.reduce((a,r)=>a+Number(r.grossAmount||0),0);const net=payroll.reduce((a,r)=>a+Number(r.netAmount||0),0);const deductions=payroll.reduce((a,r)=>a+Number(r.deductions||0),0);
+ return <main className={styles.page}><div className={styles.wrap}><header><div><small>TJS EDU · ҲИСОБОТ ВА ТАҲЛИЛ</small><h1>Ҳисоботҳои муассиса</h1><p>Ҷамъбасти кадрҳо, хонандагон, тарифҳо ва маош</p></div><div className={styles.actions}><button className={styles.print} onClick={()=>window.print()}>🖨 Чопи ҳисобот</button><button onClick={downloadPayrollCsv} disabled={!payroll.length||busy}>⬇ Excel (CSV)</button><button onClick={()=>nav("/")}>← Панели асосӣ</button></div></header>
  <section className={styles.filters}><label>Муассиса<select value={school} onChange={e=>setSchool(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Моҳи ҳисоботӣ<input type="month" value={month} onChange={e=>setMonth(e.target.value)}/></label><label>Соли таҳсил<input value={year} onChange={e=>setYear(e.target.value)}/></label></section>
  {err&&<p className={styles.error}>{err}</p>}{busy&&<p className={styles.loading}>Маълумот бор шуда истодааст...</p>}
  <div className={styles.cards}><article><span>Омӯзгорону кормандон</span><b>{staff.length}</b></article><article><span>Синфҳо</span><b>{classes.length}</b></article><article><span>Хонандагон</span><b>{students.length}</b></article><article><span>Сатрҳои тарифӣ</span><b>{tariffs.length}</b></article><article><span>Дарсҳо дар ҷадвал</span><b>{timetable.length}</b></article></div>

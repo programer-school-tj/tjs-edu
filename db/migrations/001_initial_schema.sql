@@ -185,6 +185,8 @@ CREATE TABLE IF NOT EXISTS institution_payroll_entries (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS payroll_institution_month_idx ON institution_payroll_entries(institution_id, payroll_month);
+CREATE UNIQUE INDEX IF NOT EXISTS payroll_staff_month_uq
+  ON institution_payroll_entries(institution_id, staff_id, payroll_month);
 
 CREATE TABLE IF NOT EXISTS institution_timetable_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -202,6 +204,11 @@ CREATE TABLE IF NOT EXISTS institution_timetable_entries (
   UNIQUE(institution_id, class_id, weekday, lesson_number, academic_year)
 );
 CREATE INDEX IF NOT EXISTS timetable_staff_slot_idx ON institution_timetable_entries(institution_id, staff_id, weekday, lesson_number);
+-- Enforce conflict prevention at database level, including concurrent requests.
+CREATE UNIQUE INDEX IF NOT EXISTS timetable_class_slot_uq
+  ON institution_timetable_entries(institution_id, class_id, weekday, lesson_number, academic_year);
+CREATE UNIQUE INDEX IF NOT EXISTS timetable_staff_slot_uq
+  ON institution_timetable_entries(institution_id, staff_id, weekday, lesson_number, academic_year);
 
 CREATE TABLE IF NOT EXISTS institution_attendance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

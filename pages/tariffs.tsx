@@ -7,11 +7,14 @@ import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import { buildTariffTemplateCells } from "../helpers/financeTemplateMapping";
 import styles from "./tariffs.module.css";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useLanguage } from "../helpers/i18n";
 
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function TariffsPage() {
   const nav = useNavigate();
+  const { t } = useLanguage();
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [rows, setRows] = useState<any[]>([]);
@@ -44,7 +47,7 @@ export default function TariffsPage() {
   };
 
   return <main className={styles.page}><div className={styles.wrap}>
-    <header><div><small>TJS EDU · МОЛИЯ ВА КАДРҲО</small><h1>Тарификатсия</h1><p>Меъёрҳои маош ва маълумоти тахассусии кормандон</p></div><div className={styles.actions}><button className={styles.printButton} onClick={() => window.print()}>🖨 Чопи A4</button><button onClick={() => nav("/")}>← Панели асосӣ</button></div></header>
+    <header><div><small>TJS EDU · МОЛИЯ ВА КАДРҲО</small><h1>{t("finance.tariffsTitle")}</h1><p>{t("finance.tariffsSubtitle")}</p></div><div className={styles.actions}><LanguageSwitcher /><button className={styles.printButton} onClick={() => window.print()}>🖨 {t("common.printA4")}</button><button onClick={() => nav("/")}>← {t("common.mainDashboard")}</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></section>
     {school && <div className={styles.templateArea}><ExcelTemplateEditor title={`Тарификатсия барои соли таҳсили ${f.academicYear}`} templateUrl="/_cdn/static/a382c6d0-9133-4a64-8245-dcdbce4a8828-tariffing-template.xlsx" documentType="tariffing" institutionId={school} academicYear={f.academicYear} worksheetName="Лист1" headerRows={4} maxRows={143} maxColumns={26} editableThroughRow={142} prefillCells={templateCells} orientation="landscape" printScale={0.7} /></div>}

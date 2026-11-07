@@ -10,3 +10,7 @@ export const addTimetable=(x:any)=>call<QuotaResult & {entry:any}>("/_api/timeta
 export type FormDocumentType = "tariffing" | "payroll" | "timetable";
 export const getFormDocument=async(institutionId:string,documentType:FormDocumentType,academicYear:string,periodKey="")=>(await call<{document:any}>(`/_api/forms/load?institutionId=${encodeURIComponent(institutionId)}&documentType=${documentType}&academicYear=${encodeURIComponent(academicYear)}&periodKey=${encodeURIComponent(periodKey)}`)).document;
 export const saveFormDocument=(x:{institutionId:string;documentType:FormDocumentType;academicYear:string;periodKey?:string;templateVersion?:string;cells:Record<string,string>})=>call<{document:any}>("/_api/forms/save",x);
+
+export const getTeachingLoads=async(institutionId:string,academicYear:string)=>(await call<{loads:any[]}>(`/_api/teaching-loads/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).loads||[];
+export const addTeachingLoad=(x:any)=>call<{load:any}>("/_api/teaching-loads/create",x);
+export const generateTimetable=(x:{institutionId:string;academicYear:string})=>call<{created:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/generate",x);

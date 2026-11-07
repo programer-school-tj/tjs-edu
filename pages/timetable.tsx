@@ -70,7 +70,7 @@ export default function TimetablePage() {
       <label>Омӯзгор<select required value={f.staffId} onChange={(event) => set("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>
       <label>Фан<input required value={f.subject} onChange={(event) => set("subject", event.target.value)} placeholder="Масалан: Информатика" /></label>
       <label>Рӯзи ҳафта<select value={f.weekday} onChange={(event) => set("weekday", event.target.value)}>{days.slice(1).map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label>
-      <label>Соати дарс<select value={f.lessonNumber} onChange={(event) => set("lessonNumber", event.target.value)}>{Array.from({ length: 12 }, (_, index) => index + 1).map((number) => <option key={number} value={number}>{number}-ум</option>)}</select></label>
+      <label>Соати дарс<select value={f.lessonNumber} onChange={(event) => set("lessonNumber", event.target.value)}>{Array.from({ length: 6 }, (_, index) => index + 1).map((number) => <option key={number} value={number}>{number}-ум</option>)}</select></label>
       <label>Рақами кабинет<input value={f.room} onChange={(event) => set("room", event.target.value)} /></label>
       <button disabled={busy || !school || !f.classId || !f.staffId}>{busy ? "Сабт..." : "Иловаи дарс"}</button>
     </form></section>

@@ -105,4 +105,3 @@ export function clearServerSession(response: Response) {
 
   response.headers.set("Set-Cookie", cookieValue);
 }
-  108

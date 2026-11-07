@@ -7,11 +7,14 @@ import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import { buildPayrollTemplateCells } from "../helpers/financeTemplateMapping";
 import styles from "./payroll.module.css";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useLanguage } from "../helpers/i18n";
 
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function PayrollPage() {
   const nav = useNavigate();
+  const { t } = useLanguage();
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [staff, setStaff] = useState<any[]>([]);
@@ -79,7 +82,7 @@ export default function PayrollPage() {
   };
 
   return <main className={styles.page}><div className={styles.wrap}>
-    <header><div><small>TJS EDU · МОЛИЯ</small><h1>Табели маош</h1><p>Ҳисоб ва сабти музди меҳнати кормандон</p></div><div className={styles.actions}><button className={styles.printButton} onClick={() => window.print()}>🖨 Чопи A4</button><button onClick={() => nav("/")}>← Панели асосӣ</button></div></header>
+    <header><div><small>TJS EDU · МОЛИЯ</small><h1>{t("finance.payrollTitle")}</h1><p>{t("finance.payrollSubtitle")}</p></div><div className={styles.actions}><LanguageSwitcher /><button className={styles.printButton} onClick={() => window.print()}>🖨 {t("common.printA4")}</button><button onClick={() => nav("/")}>← {t("common.mainDashboard")}</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Моҳи ҳисоботӣ<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label></div></section>
     {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Табели маош · бланкаи аслии муассиса" templateUrl="/_cdn/static/aef649ff-c65f-4d60-b3d4-b819d651e1dc-saformad-payroll-template.xlsx" documentType="payroll" institutionId={school} academicYear="2026-2027" periodKey={month} worksheetName="Лист1" headerRows={4} maxRows={152} maxColumns={30} editableThroughRow={142} prefillCells={templateCells} orientation="landscape" printScale={0.7} /></div>}

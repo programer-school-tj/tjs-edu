@@ -18,7 +18,7 @@ export async function handle(request: Request) {
     const membership = user.role === "admin" ? true : await access.executeTakeFirst();
     if (!membership) return new Response(superjson.stringify({ message: "Шумо барои идоракунии кормандони ин муассиса иҷозат надоред." }), { status: 403 });
     const staff = await db.selectFrom("institutionStaff").select([
-      "id","institutionId","fullName","personnelNumber","positionTitle","employmentType","phone","email","subject","isActive","createdAt"
+      "id","institutionId","fullName","personnelNumber","positionTitle","employmentType","phone","email","subject","workloadHours","isActive","createdAt"
     ]).where("institutionId","=",institutionId).orderBy("fullName","asc").execute();
     return new Response(superjson.stringify({ staff }), { headers: { "Content-Type": "application/json" } });
   } catch (error) {

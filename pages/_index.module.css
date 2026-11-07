@@ -14,3 +14,7 @@
 .plansBanner button{border:0;border-radius:8px;background:#c58b22;color:#fff;padding:10px 13px;font:600 11px var(--font-family-base);cursor:pointer;white-space:nowrap}
 .plansBanner button span{margin-left:5px}
 @media(max-width:600px){.plansBanner{align-items:flex-start;flex-wrap:wrap}.plansBanner>div:nth-child(2){flex:1 1 calc(100% - 55px)}.plansBanner button{width:100%}}
+
+.heroBanner{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:205px;margin:0 0 20px;padding:22px 27px;border-radius:15px;overflow:hidden;background:linear-gradient(115deg,#0b376b,#126eaa);color:#fff;box-shadow:0 12px 28px rgba(13,55,100,.16)}
+.heroCopy{max-width:470px;position:relative;z-index:1}.heroCopy>span{font-size:9px;font-weight:800;letter-spacing:1.6px;color:#a8d9f5}.heroCopy h2{font:650 clamp(20px,2.4vw,29px)/1.2 var(--font-family-display);margin:9px 0}.heroCopy p{max-width:410px;margin:0;color:#d8eafa;font-size:12px;line-height:1.6}.heroCopy button{margin-top:15px;padding:9px 13px;border:1px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font:600 11px var(--font-family-base);cursor:pointer}.heroCopy button span{margin-left:8px}.heroBanner img{width:min(42%,390px);max-height:190px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 8px 15px rgba(0,0,0,.12))}
+@media(max-width:650px){.heroBanner{min-height:0;padding:19px;position:relative}.heroBanner img{width:38%;opacity:.72;position:absolute;right:5px;bottom:5px}.heroCopy{max-width:75%}.heroCopy p{font-size:11px}}

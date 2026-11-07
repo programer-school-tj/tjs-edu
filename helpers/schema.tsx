@@ -191,6 +191,7 @@ export interface InstitutionStudents {
 
 export interface InstitutionTariffs {
   academicYear: string;
+  staffId: string | null;
   createdAt: Generated<Timestamp>;
   createdBy: number;
   educationLevel: string | null;

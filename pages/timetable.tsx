@@ -50,7 +50,7 @@ export default function TimetablePage() {
       setClasses(classRows);
       setGridClassId((current) => current || classRows[0]?.id || "");
       setStaff(staffRows.filter((item: any) => item.isActive));
-      setAvailabilityStaffId((current) => current || staffRows.find((item: any) => item.isActive)?.id || "");
+      setAvailabilityStaffId(staffRows.find((item: any) => item.isActive)?.id || "");
       setF((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
       setLoadForm((value) => ({ ...value, classId: classRows[0]?.id || "", staffId: staffRows.find((item: any) => item.isActive)?.id || "" }));
     }).catch((error) => setErr(error.message));

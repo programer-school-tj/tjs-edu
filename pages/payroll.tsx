@@ -44,10 +44,26 @@ export default function PayrollPage() {
   const templateCells = useMemo(() => buildPayrollTemplateCells(staff, tariffs, rows, "2026-2027", month), [staff, tariffs, rows, month]);
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const selectedStaff = staff.find((item) => item.id === f.staffId);
-  const matchingTariffs = selectedStaff
-    ? tariffs.filter((item) => item.staffId ? item.staffId === selectedStaff.id : String(item.positionTitle || "").trim().toLocaleLowerCase() === String(selectedStaff.positionTitle || "").trim().toLocaleLowerCase())
-    : tariffs;
-  const availableTariffs = selectedStaff ? matchingTariffs : tariffs;
+  const [monthYear, monthNumber] = month.split("-").map(Number);
+  const payrollDate = new Date(Date.UTC(monthYear || 2026, (monthNumber || 1) - 1, 1));
+  const academicYear = monthNumber >= 9
+    ? `${monthYear}-${monthYear + 1}`
+    : `${monthYear - 1}-${monthYear}`;
+  const matchingTariffs = tariffs.filter((item) => {
+    if (item.academicYear !== academicYear) return false;
+    const from = new Date(item.effectiveFrom);
+    const to = item.effectiveTo ? new Date(item.effectiveTo) : null;
+    if (Number.isNaN(from.getTime()) || from > payrollDate || (to && to < payrollDate)) return false;
+    if (!selectedStaff) return true;
+    return item.staffId
+      ? item.staffId === selectedStaff.id
+      : String(item.positionTitle || "").trim().toLocaleLowerCase() === String(selectedStaff.positionTitle || "").trim().toLocaleLowerCase();
+  });
+  const availableTariffs = selectedStaff
+    ? matchingTariffs.filter((item) => item.staffId === selectedStaff.id).length
+      ? matchingTariffs.filter((item) => item.staffId === selectedStaff.id)
+      : matchingTariffs.filter((item) => !item.staffId)
+    : matchingTariffs;
   const gross = Number(f.baseAmount || 0) + Number(f.allowances || 0);
   const net = gross - Number(f.deductions || 0);
   const save = async (event: React.FormEvent) => {

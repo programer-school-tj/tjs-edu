@@ -207,7 +207,21 @@ export interface InstitutionTariffs {
   weeklyHours: Numeric | null;
 }
 
+export interface InstitutionTeachingLoads {
+  academicYear: string;
+  classId: string;
+  createdAt: Generated<Timestamp>;
+  createdBy: number;
+  id: Generated<string>;
+  institutionId: string;
+  staffId: string;
+  subject: string;
+  updatedAt: Generated<Timestamp>;
+  weeklyHours: Numeric;
+}
+
 export interface InstitutionTimetableEntries {
+  shiftNumber: number;
   academicYear: string;
   classId: string;
   createdAt: Generated<Timestamp>;
@@ -278,6 +292,7 @@ export interface DB {
   institutionStudents: InstitutionStudents;
   institutionTariffs: InstitutionTariffs;
   institutionTimetableEntries: InstitutionTimetableEntries;
+  institutionTeachingLoads: InstitutionTeachingLoads;
   loginAttempts: LoginAttempts;
   passwordResetCodes: PasswordResetCodes;
   sessions: Sessions;

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
+import ExcelJS from "exceljs";
 import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getClasses } from "../helpers/educationClient";
 import { getStaff } from "../helpers/staffClient";
-import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable } from "../helpers/financeScheduleClient";
+import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
@@ -20,6 +21,8 @@ export default function TimetablePage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loads, setLoads] = useState<any[]>([]);
   const [loadBusy, setLoadBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importStatus, setImportStatus] = useState("");
   const [loadForm, setLoadForm] = useState({ classId: "", staffId: "", subject: "", weeklyHours: "1" });
   const [year, setYear] = useState("2026-2027");
   const [gridClassId, setGridClassId] = useState("");
@@ -64,6 +67,93 @@ export default function TimetablePage() {
   const setLoad = (key: string, value: string) => setLoadForm((current) => ({ ...current, [key]: value }));
   const saveLoad = async (event: React.FormEvent) => { event.preventDefault(); setLoadBusy(true); setErr(""); try { await addTeachingLoad({ institutionId: school, ...loadForm, weeklyHours: Number(loadForm.weeklyHours), academicYear: year }); setLoads(await getTeachingLoads(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : "Сарборӣ сабт нашуд."); } finally { setLoadBusy(false); } };
   const generate = async () => { setLoadBusy(true); setErr(""); try { const result = await generateTimetable({ institutionId: school, academicYear: year }); setRows(await getTimetable(school, year)); window.alert(`Ҷадвал сохта шуд. Дарсҳои нав: ${result.created}`); } catch (error) { setErr(error instanceof Error ? error.message : "Ҷадвал сохта нашуд."); } finally { setLoadBusy(false); } };
+
+  const downloadImportTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Ҷадвали дарсӣ");
+    sheet.columns = [
+      { header: "Синф", key: "class", width: 14 },
+      { header: "Рӯз (1-6)", key: "day", width: 14 },
+      { header: "Соати дарс (1-6)", key: "lesson", width: 18 },
+      { header: "Фан", key: "subject", width: 24 },
+      { header: "Омӯзгор (ному насаб)", key: "teacher", width: 32 },
+      { header: "Кабинет", key: "room", width: 14 },
+    ];
+    sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2459A6" } };
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    sheet.autoFilter = { from: "A1", to: "F1" };
+    const buffer = await workbook.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buffer as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "TJS-Edu-namunai-voridoti-jadval.xlsx";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  };
+
+  const importExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImportBusy(true); setImportStatus(""); setErr("");
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await file.arrayBuffer());
+      const sheet = workbook.worksheets[0];
+      if (!sheet || sheet.rowCount < 2) throw new Error("Файл варақи маълумотдор надорад.");
+      const headers = sheet.getRow(1).values as Array<ExcelJS.CellValue>;
+      const headerIndex = new Map<string, number>();
+      headers.forEach((value, index) => {
+        const label = String(value ?? "").trim().toLocaleLowerCase();
+        if (label) headerIndex.set(label, index);
+      });
+      const column = (...names: string[]) => {
+        for (const name of names) {
+          const found = headerIndex.get(name.toLocaleLowerCase());
+          if (found !== undefined) return found;
+        }
+        return -1;
+      };
+      const classCol = column("синф", "class");
+      const dayCol = column("рӯз (1-6)", "рӯз", "weekday", "day");
+      const lessonCol = column("соати дарс (1-6)", "соати дарс", "lesson", "lesson number");
+      const subjectCol = column("фан", "subject");
+      const teacherCol = column("омӯзгор (ному насаб)", "омӯзгор", "teacher", "teacher name");
+      const roomCol = column("кабинет", "room");
+      if ([classCol, dayCol, lessonCol, subjectCol, teacherCol].some((index) => index < 0)) {
+        throw new Error("Сарлавҳаҳои сутунҳо нодурустанд. Намунаи TJS Edu-ро истифода баред.");
+      }
+      const dayNames = ["душанбе", "сешанбе", "чоршанбе", "панҷшанбе", "ҷумъа", "шанбе"];
+      const rowsToImport: Array<{ grade: number; section: string; weekday: number; lessonNumber: number; subject: string; teacherName: string; room?: string }> = [];
+      for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
+        const row = sheet.getRow(rowNumber);
+        const read = (index: number) => index < 0 ? "" : String(row.getCell(index).text || "").trim();
+        const classValue = read(classCol).replace(/\s+/g, "").toLocaleUpperCase();
+        if (!classValue) continue;
+        const classMatch = /^(\d{1,2})([А-ЯA-ZҒӢҚӮҲҶЭЮЯ])$/.exec(classValue);
+        if (!classMatch) throw new Error("Номи синф дар сатри " + rowNumber + " нодуруст аст. Намуна: 5А.");
+        const dayValue = read(dayCol).toLocaleLowerCase();
+        const weekday = /^\d+$/.test(dayValue) ? Number(dayValue) : dayNames.indexOf(dayValue) + 1;
+        const lessonNumber = Number(read(lessonCol));
+        const subject = read(subjectCol);
+        const teacherName = read(teacherCol);
+        if (weekday < 1 || weekday > 6 || !Number.isInteger(lessonNumber) || lessonNumber < 1 || lessonNumber > 6 || subject.length < 2 || teacherName.length < 2) {
+          throw new Error("Маълумоти сатри " + rowNumber + " пурра ё дуруст нест.");
+        }
+        rowsToImport.push({ grade: Number(classMatch[1]), section: classMatch[2], weekday, lessonNumber, subject, teacherName, room: read(roomCol) });
+      }
+      if (!rowsToImport.length) throw new Error("Дар файл ягон сатри пуршуда ёфт нашуд.");
+      const result = await importTimetableRows({ institutionId: school, academicYear: year, rows: rowsToImport });
+      setRows(await getTimetable(school, year));
+      setImportStatus("Муваффақона " + result.imported + " дарс ворид шуд. Ҳамаи сатрҳо пешакӣ санҷида шуданд.");
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Воридоти Excel иҷро нашуд.");
+    } finally {
+      setImportBusy(false);
+      event.target.value = "";
+    }
+  };
+
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -83,6 +173,7 @@ export default function TimetablePage() {
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>Муассиса<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Соли таҳсил<input value={year} onChange={(event) => setYear(event.target.value)} /></label></div></section>
     {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Ҷадвали дарсӣ · соли таҳсили 2026–2027" templateUrl="/_cdn/static/8013df35-8713-4a50-a42b-3a152917199a-timetable-template.xlsx" documentType="timetable" institutionId={school} academicYear={year} worksheetName="Лист3" headerRows={3} maxRows={81} maxColumns={27} orientation="portrait" printScale={0.55} /></div>}
+    <section className={styles.panel}><h2>Ворид кардани ҷадвал аз Excel</h2><p className={styles.note}>Намунаро гиред, маълумоти ҷадвалро пур кунед ва файлро бор кунед. Система синф, омӯзгор, ихтилофи вақт ва сарбории тасдиқшударо месанҷад. Агар ҳатто як сатр хато бошад, ягон дарс сабт намешавад.</p><div className={styles.importActions}><button type="button" className={styles.secondaryButton} onClick={() => void downloadImportTemplate()} disabled={!school || importBusy}>⬇️ Гирифтани намунаи Excel</button><label className={styles.importFile}>Интихоби файли Excel<input type="file" accept=".xlsx,.xls" onChange={importExcel} disabled={!school || importBusy} /></label></div>{importBusy && <p className={styles.note}>Файл санҷида ва ворид шуда истодааст...</p>}{importStatus && <p className={styles.importSuccess}>{importStatus}</p>}</section>
     <section className={styles.panel}><h2>Сарбории фаннии омӯзгорон</h2><p className={styles.note}>Аввал муайян кунед, ки ҳар омӯзгор дар кадом синф кадом фанро чанд соат дар як ҳафта мегузаронад.</p><form onSubmit={saveLoad}>
       <label>Синф<select required value={loadForm.classId} onChange={(event) => setLoad("classId", event.target.value)}>{classes.map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>
       <label>Омӯзгор<select required value={loadForm.staffId} onChange={(event) => setLoad("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>

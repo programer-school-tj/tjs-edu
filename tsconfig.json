@@ -30,5 +30,10 @@
     "helpers",
     "endpoints",
     "vite.config.ts"
+  ],
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "node_modules"
   ]
 }

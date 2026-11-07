@@ -14,6 +14,7 @@ import StaffPage from "../pages/staff";
 import StudentsPage from "../pages/students";
 import TariffsPage from "../pages/tariffs";
 import TimetablePage from "../pages/timetable";
+import PlansPage from "../pages/plans";
 
 export default function App() {
   return <Routes>
@@ -31,6 +32,7 @@ export default function App() {
     <Route path="/students" element={<StudentsPage />} />
     <Route path="/tariffs" element={<TariffsPage />} />
     <Route path="/timetable" element={<TimetablePage />} />
+    <Route path="/plans" element={<PlansPage />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>;
 }

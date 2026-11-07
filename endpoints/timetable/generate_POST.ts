@@ -72,6 +72,7 @@ export async function handle(request: Request) {
       }
 
       let best: Slot[] | null = null;
+      let bestTasks: Task[] = [];
       const slotList: Slot[] = [];
       for (let weekday = 1; weekday <= 6; weekday++) for (let lessonNumber = 1; lessonNumber <= 6; lessonNumber++) slotList.push({ weekday, lessonNumber, shiftNumber: 1 }, { weekday, lessonNumber, shiftNumber: 2 });
 
@@ -109,11 +110,11 @@ export async function handle(request: Request) {
           const tk = `${task.staffId}:${chosen.weekday}`;
           dayTeachers.set(tk, (dayTeachers.get(tk) || 0) + 1);
         }
-        if (success) best = placed as Slot[];
+        if (success) { best = placed as Slot[]; bestTasks = remaining; }
       }
 
       if (!best) throw new Error("SCHEDULE_NOT_FIT");
-      const rows = tasks.map((task, index) => ({
+      const rows = bestTasks.map((task, index) => ({
         institutionId: x.institutionId, classId: task.classId, staffId: task.staffId, subject: task.subject,
         shiftNumber: best![index].shiftNumber, weekday: best![index].weekday, lessonNumber: best![index].lessonNumber,
         room: null, academicYear: x.academicYear, createdBy: user.id,

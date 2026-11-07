@@ -144,7 +144,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLanguage = useCallback((next: AppLanguage) => {
     setLanguageState(next);
     try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ },
-    "attendance.title":"حاضری دانش‌آموزان","attendance.subtitle":"ثبت حاضری روزانهٔ دانش‌آموزان","attendance.institution":"مؤسسه","attendance.class":"صنف","attendance.date":"تاریخ","attendance.present":"حاضر","attendance.absent":"غایب","attendance.late":"با تأخیر","attendance.excused":"با عذر","attendance.list":"فهرست دانش‌آموزان","attendance.marked":"از","attendance.markedSuffix":"نفر ثبت شده‌اند","attendance.markAll":"ثبت حضور همه","attendance.export":"Excel (CSV)","attendance.save":"ذخیرهٔ حاضری","attendance.saving":"در حال ذخیره...","attendance.loading":"در حال بارگذاری فهرست...","attendance.empty":"در صنف انتخاب‌شده دانش‌آموزی نیست.","attendance.number":"شمارهٔ شخصی","attendance.status":"وضعیت","attendance.note":"یادداشت","attendance.choose":"انتخاب کنید","attendance.notePlaceholder":"دلیل غیبت...","attendance.unmarked":"ثبت نشده","attendance.footer":"حاضری بر اساس تاریخ و مؤسسه ذخیره می‌شود."
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;

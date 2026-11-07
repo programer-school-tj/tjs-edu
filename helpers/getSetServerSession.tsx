@@ -1,7 +1,10 @@
 import { jwtVerify, SignJWT } from "jose";
 
 const encoder = new TextEncoder();
-const secret = process.env.JWT_SECRET;
+const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+if (!secret || secret.length < 32) {
+  throw new Error("SESSION_SECRET must be configured with at least 32 characters.");
+}
 
 export const SessionExpirationSeconds = 60 * 60 * 24 * 7; // 1 week
 // Probability to run cleanup (10%)
@@ -20,7 +23,7 @@ export interface Session {
   passwordChangeRequired?: boolean;
 }
 
-const CookieName = "floot_built_app_session";
+const CookieName = "tjs_edu_session";
 
 export class NotAuthenticatedError extends Error {
   constructor(message?: string) {

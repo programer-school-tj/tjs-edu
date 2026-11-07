@@ -11,6 +11,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import { ThemeModeSwitch } from "../components/ThemeModeSwitch";
 import styles from "./_index.module.css";
 import { BrandMark } from "../components/BrandMark";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useLanguage } from "../helpers/i18n";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, BookOpen, Building2, CalendarCheck,
   CalendarDays, CheckCircle2, ChevronDown, CircleHelp, ClipboardList,
@@ -36,7 +38,9 @@ const navItems = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { authState } = useAuth();
+  const navTranslationKeys: Record<string, string> = { "Шарҳи умумӣ":"nav.overview", "Муассисаҳо":"nav.institutions", "Омӯзгорон ва кормандон":"nav.staff", "Хонандагон ва донишҷӯён":"nav.students", "Синфҳо":"nav.classes", "Ҷадвали дарсҳо":"nav.timetable", "Давомоти хонандагон":"nav.attendance", "Мавод ва дарсҳо":"nav.materials", "Ҳисоб ва маош":"nav.payroll", "Тарификатсия":"nav.tariffs", "Ҳисоботҳо":"nav.reports", "Роҳнамо ва омӯзиш":"nav.help", "Тарофаҳо ва PRO":"nav.plans", "Маъмурияти платформа":"nav.admin" };
   const visibleNavItems = authState.type === "authenticated" && authState.user.role === "admin" ? [...navItems, { label: "Маъмурияти платформа", icon: ShieldCheck }] : navItems;
   const [activeNav, setActiveNav] = useState("Шарҳи умумӣ");
   const [showRegistration, setShowRegistration] = useState(false);
@@ -122,7 +126,7 @@ export default function HomePage() {
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             return <button key={item.label} className={`${styles.navItem} ${activeNav === item.label ? styles.navActive : ""}`} onClick={() => { if (item.label === "Маъмурияти платформа") { navigate("/admin"); return; } if (item.label === "Омӯзгорон ва кормандон") { navigate("/staff"); return; } if (item.label === "Хонандагон ва донишҷӯён") { navigate("/students"); return; } if (item.label === "Синфҳо") { navigate("/classes"); return; } if (item.label === "Ҷадвали дарсҳо") { navigate("/timetable"); return; } if (item.label === "Давомоти хонандагон") { navigate("/attendance"); return; } if (item.label === "Мавод ва дарсҳо") { navigate("/materials"); return; } if (item.label === "Ҳисоб ва маош") { navigate("/payroll"); return; } if (item.label === "Тарификатсия") { navigate("/tariffs"); return; } if (item.label === "Ҳисоботҳо") { navigate("/reports"); return; } if (item.label === "Роҳнамо ва омӯзиш") { navigate("/help"); return; } if (item.label === "Тарофаҳо ва PRO") { navigate("/plans"); return; } setActiveNav(item.label); setMobileMenu(false); }}>
-              <Icon size={18} /><span>{item.label}</span>
+              <Icon size={18} /><span>{t(navTranslationKeys[item.label] || item.label)}</span>
             </button>;
           })}
         </nav>
@@ -138,26 +142,26 @@ export default function HomePage() {
 
       <main className={styles.mainArea}>
         <header className={styles.topbar}>
-          <div className={styles.topbarLeft}><Button variant="ghost" size="icon-md" className={styles.menuButton} onClick={() => setMobileMenu(true)}><Menu size={20} /></Button><div className={styles.breadcrumb}>Платформа <span>/</span> <strong>{activeNav}</strong></div></div>
-          <div className={styles.topbarRight}><div className={styles.searchBox}><Search size={16} /><input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Ҷустуҷӯ..." /></div><ThemeModeSwitch /><button className={styles.iconButton} aria-label="Огоҳиномаҳо"><Bell size={18} /><i /></button><div className={styles.topAvatar}>С</div></div>
+          <div className={styles.topbarLeft}><Button variant="ghost" size="icon-md" className={styles.menuButton} onClick={() => setMobileMenu(true)}><Menu size={20} /></Button><div className={styles.breadcrumb}>{t("dashboard.platform")} <span>/</span> <strong>{t(navTranslationKeys[activeNav] || activeNav)}</strong></div></div>
+          <div className={styles.topbarRight}><LanguageSwitcher /><div className={styles.searchBox}><Search size={16} /><input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={t("dashboard.search")} /></div><ThemeModeSwitch /><button className={styles.iconButton} aria-label="Огоҳиномаҳо"><Bell size={18} /><i /></button><div className={styles.topAvatar}>С</div></div>
         </header>
 
         <div className={styles.pageContent}>
           <div className={styles.pageHeading}>
-            <div><div className={styles.eyebrow}><span /> ПАНЕЛИ ИДОРАКУНИИ ПЛАТФОРМА</div><h1>{activeNav === "Шарҳи умумӣ" ? "Хуш омадед ба TJS Edu" : activeNav}</h1><p>Идоракунии ягонаи муассисаҳои таълимии Тоҷикистон</p></div>
+            <div><div className={styles.eyebrow}><span /> ПАНЕЛИ ИДОРАКУНИИ ПЛАТФОРМА</div><h1>{activeNav === "Шарҳи умумӣ" ? t("dashboard.title") : t(navTranslationKeys[activeNav] || activeNav)}</h1><p>{t("dashboard.subtitle")}</p></div>
             <Button onClick={() => setShowRegistration(true)}><Plus size={17} /> Иловаи муассиса</Button>
           </div>
 
-          <div className={styles.notice}><div className={styles.noticeIcon}><ShieldCheck size={19} /></div><div><strong>Пайвастшавӣ ба пойгоҳи дода</strong><p>Маълумоти муассисаҳо аз пойгоҳи дода гирифта мешавад. Дархостҳои нав то тасдиқи маъмур дар интизорӣ мемонанд.</p></div><Badge variant="success">ОНЛАЙН</Badge></div>
-          <section className={styles.plansBanner}><div className={styles.plansBannerIcon}><Crown size={22}/></div><div><strong>Имкониятҳои FREE ва PRO</strong><p>Аз имкониятҳои ройгон оғоз кунед ва ҳангоми зарурат ба истифодаи бемаҳдуд гузаред.</p></div><button onClick={() => navigate("/plans")}>Дидани тарофаҳо <span>→</span></button></section>
+          <div className={styles.notice}><div className={styles.noticeIcon}><ShieldCheck size={19} /></div><div><strong>{t("dashboard.connection")}</strong><p>{t("dashboard.connectionText")}</p></div><Badge variant="success">{t("dashboard.online")}</Badge></div>
+          <section className={styles.plansBanner}><div className={styles.plansBannerIcon}><Crown size={22}/></div><div><strong>{t("dashboard.plans")}</strong><p>{t("dashboard.plansText")}</p></div><button onClick={() => navigate("/plans")}>{t("dashboard.viewPlans")} <span>→</span></button></section>
 
-          <section className={styles.heroBanner}><div className={styles.heroCopy}><span>МАОРИФ ДАР ЯК НИЗОМ</span><h2>Идоракунии муассисаи таълимӣ осонтар мешавад</h2><p>Тарификатсия, табели маош ва ҷадвали дарсӣ дар як платформа.</p><button onClick={() => navigate("/help")}>Оғози кор <span>→</span></button></div><img src="/brand/education-hero.svg" alt="Тасвири муассисаи таълимӣ, китоб ва парчами Тоҷикистон" /></section>
+          <section className={styles.heroBanner}><div className={styles.heroCopy}><span>МАОРИФ ДАР ЯК НИЗОМ</span><h2>{t("dashboard.heroTitle")}</h2><p>{t("dashboard.heroText")}</p><button onClick={() => navigate("/help")}>{t("dashboard.start")} <span>→</span></button></div><img src="/brand/education-hero.svg" alt="Тасвири муассисаи таълимӣ, китоб ва парчами Тоҷикистон" /></section>
 
           <section className={styles.statsGrid}>
-            <div className={styles.statCard}><div className={styles.statTop}><span>Ҳамаи муассисаҳо</span><div className={styles.statIcon}><Building2 size={18} /></div></div><div className={styles.statValue}>{institutions.length}</div><div className={styles.statFoot}><span className={styles.positive}><CheckCircle2 size={14} /> воқеӣ</span><span>муассисаҳои ҳисоби шумо</span></div><div className={styles.sparkline}><span style={{height:"35%"}}/><span style={{height:"48%"}}/><span style={{height:"42%"}}/><span style={{height:"60%"}}/><span style={{height:"52%"}}/><span style={{height:"72%"}}/><span style={{height:"66%"}}/><span style={{height:"88%"}}/></div></div>
-            <div className={styles.statCard}><div className={styles.statTop}><span>Омӯзгорон ва кормандон</span><div className={styles.statIcon}><Users size={18} /></div></div><div className={styles.statValue}>{loadingCounts ? "…" : liveCounts.staff}</div><div className={styles.statFoot}><span>Маълумоти пойгоҳи дода</span><span>корманди фаъол ва ғайрифаъол</span></div></div>
-            <div className={styles.statCard}><div className={styles.statTop}><span>Хонандагону донишҷӯён</span><div className={styles.statIcon}><GraduationCap size={18} /></div></div><div className={styles.statValue}>{loadingCounts ? "…" : liveCounts.students}</div><div className={styles.statFoot}><span>Маълумоти пойгоҳи дода</span><span>хонандагони муассисаҳои тасдиқшуда</span></div></div>
-            <div className={styles.statCard}><div className={styles.statTop}><span>Дархостҳои нав</span><div className={styles.statIcon}><Activity size={18} /></div></div><div className={styles.statValue}>{institutions.filter((item) => item.status === "pending").length}</div><div className={styles.statFoot}><span className={styles.pendingText}><ArrowDownRight size={14} /> Дар интизорӣ</span><span>дархостҳои шумо</span></div></div>
+            <div className={styles.statCard}><div className={styles.statTop}><span>{t("dashboard.institutionsTitle")}</span><div className={styles.statIcon}><Building2 size={18} /></div></div><div className={styles.statValue}>{institutions.length}</div><div className={styles.statFoot}><span className={styles.positive}><CheckCircle2 size={14} /> воқеӣ</span><span>муассисаҳои ҳисоби шумо</span></div><div className={styles.sparkline}><span style={{height:"35%"}}/><span style={{height:"48%"}}/><span style={{height:"42%"}}/><span style={{height:"60%"}}/><span style={{height:"52%"}}/><span style={{height:"72%"}}/><span style={{height:"66%"}}/><span style={{height:"88%"}}/></div></div>
+            <div className={styles.statCard}><div className={styles.statTop}><span>{t("dashboard.staffTitle")}</span><div className={styles.statIcon}><Users size={18} /></div></div><div className={styles.statValue}>{loadingCounts ? "…" : liveCounts.staff}</div><div className={styles.statFoot}><span>Маълумоти пойгоҳи дода</span><span>корманди фаъол ва ғайрифаъол</span></div></div>
+            <div className={styles.statCard}><div className={styles.statTop}><span>{t("dashboard.learnersTitle")}</span><div className={styles.statIcon}><GraduationCap size={18} /></div></div><div className={styles.statValue}>{loadingCounts ? "…" : liveCounts.students}</div><div className={styles.statFoot}><span>Маълумоти пойгоҳи дода</span><span>хонандагони муассисаҳои тасдиқшуда</span></div></div>
+            <div className={styles.statCard}><div className={styles.statTop}><span>{t("dashboard.pendingTitle")}</span><div className={styles.statIcon}><Activity size={18} /></div></div><div className={styles.statValue}>{institutions.filter((item) => item.status === "pending").length}</div><div className={styles.statFoot}><span className={styles.pendingText}><ArrowDownRight size={14} /> Дар интизорӣ</span><span>дархостҳои шумо</span></div></div>
           </section>
 
           <section className={styles.contentGrid}>

@@ -35,12 +35,14 @@ export async function handle(request: Request) {
     }
 
     const result = await withPlanQuota(x.institutionId, "timetable", async (trx) => {
-      const [classes, staff, existing] = await Promise.all([
+      const [classes, staff, existing, availability] = await Promise.all([
         trx.selectFrom("institutionClasses").select(["id", "grade", "section"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaff").select(["id", "fullName", "workloadHours"])
           .where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
         trx.selectFrom("institutionTimetableEntries").select(["classId", "staffId", "weekday", "lessonNumber", "shiftNumber", "room"])
+          .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
+        trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "lessonNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
       ]);
       const classMap = new Map(classes.map((row) => [`${row.grade}:${row.section.trim().toLocaleLowerCase()}`, row]));
@@ -60,6 +62,8 @@ export async function handle(request: Request) {
         if (!cls) throw new Error(`ROW_${index + 2}_CLASS_NOT_FOUND`);
         if (!teacher) throw new Error(`ROW_${index + 2}_TEACHER_NOT_FOUND`);
         const shiftNumber = Number(cls.grade) <= 7 ? 2 : 1;
+        const teacherUnavailable = availability.some((slot) => slot.staffId === teacher.id && slot.weekday === row.weekday && (slot.lessonNumber === 0 || slot.lessonNumber === row.lessonNumber));
+        if (teacherUnavailable) throw new Error(`ROW_${index + 2}_TEACHER_UNAVAILABLE`);
         const classSlot = `${cls.id}:${row.weekday}:${row.lessonNumber}`;
         const teacherSlot = `${teacher.id}:${row.weekday}:${shiftNumber}:${row.lessonNumber}`;
         const normalizedRoom = row.room.trim().toLocaleLowerCase();
@@ -96,10 +100,11 @@ export async function handle(request: Request) {
       : rowMatch?.[2] === "CLASS_NOT_FOUND" ? `Синфи сатри ${rowMatch[1]} дар муассиса ёфт нашуд.`
       : rowMatch?.[2] === "TEACHER_NOT_FOUND" ? `Омӯзгори сатри ${rowMatch[1]} дар рӯйхати кормандон ёфт нашуд.`
       : rowMatch?.[2] === "CONFLICT" ? `Дар сатри ${rowMatch[1]} ихтилофи вақт вуҷуд дорад. Ҷадвал ворид нашуд.`
+      : rowMatch?.[2] === "TEACHER_UNAVAILABLE" ? `Омӯзгори сатри ${rowMatch[1]} дар ин рӯз ё соат дастрас нест. Ҷадвал ворид нашуд.`
       : code === "IMPORT_WORKLOAD_EXCEEDED" ? "Соатҳои воридшаванда аз сарбории тасдиқшудаи омӯзгор зиёд мешаванд."
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди амалиёти ройгони ҷадвали дарсӣ истифода шуд. Барои идома ба нақшаи PRO гузаред."
       : "Ворид кардани ҷадвал иҷро нашуд.";
-    const status = code === "PLAN_LIMIT_REACHED" ? 402 : rowMatch?.[2] === "CONFLICT" ? 409 : 400;
+    const status = code === "PLAN_LIMIT_REACHED" ? 402 : (rowMatch?.[2] === "CONFLICT" || rowMatch?.[2] === "TEACHER_UNAVAILABLE") ? 409 : 400;
     return new Response(superjson.stringify({ message, code: code || undefined }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

@@ -10,6 +10,21 @@ const schema = z.object({
   periodKey: z.string().max(40).default(""),
   templateVersion: z.string().max(80).default("2026-11-05-v1"),
   cells: z.record(z.string().regex(/^[A-Z]{1,3}[1-9][0-9]*$/), z.string().max(2000)).refine((value) => Object.keys(value).length <= 6000, "Ҳуҷайраҳо аз ҳад зиёданд."),
+}).superRefine((input, context) => {
+  const bounds = input.documentType === "tariffing"
+    ? { minRow: 5, maxRow: 142, maxColumn: 26 }
+    : input.documentType === "payroll"
+      ? { minRow: 5, maxRow: 142, maxColumn: 30 }
+      : { minRow: 4, maxRow: 81, maxColumn: 27 };
+  for (const address of Object.keys(input.cells)) {
+    const match = /^([A-Z]{1,3})([1-9][0-9]*)$/.exec(address);
+    if (!match) continue;
+    const column = [...match[1]].reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0);
+    const row = Number(match[2]);
+    if (row < bounds.minRow || row > bounds.maxRow || column < 1 || column > bounds.maxColumn) {
+      context.addIssue({ code: "custom", path: ["cells", address], message: "Ҳуҷайра берун аз минтақаи таҳриршавандаи бланк аст." });
+    }
+  }
 });
 
 export async function handle(request: Request) {

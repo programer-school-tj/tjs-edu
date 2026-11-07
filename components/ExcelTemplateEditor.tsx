@@ -238,7 +238,7 @@ export function ExcelTemplateEditor(props: Props) {
   return <section className={styles.editor}>
     <style>{`@page { size: A4 ${props.orientation || "landscape"}; margin: 6mm; } @media print { html, body { background: #fff !important; } body, body * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .${styles.sheetScroll} { zoom: ${props.printScale ?? 0.7}; overflow: visible !important; max-height: none !important; } .${styles.sheet} { border-collapse: collapse !important; } .${styles.sheet} tr, .${styles.sheet} td { break-inside: avoid; page-break-inside: avoid; } }`}</style>
     <div className={styles.toolbar}>
-      <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Шакли аслӣ нигоҳ дошта шудааст. Ҳуҷайраҳои қисми маълумотро пахш карда, пур кунед.</p></div>
+      <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Маълумоти кормандон пешакӣ пур мешавад. Сабтҳои дастӣ нигоҳ дошта мешаванд; ҳуҷайраҳои қисми маълумотро таҳрир кунед.</p></div>
       <div className={styles.actions}>
         <button type="button" className={styles.secondary} onClick={() => void load()} disabled={busy}>↻ Аз нав кушодан</button>
         <button type="button" onClick={() => void save()} disabled={busy || !ready}>{busy ? "Лаҳза..." : "Сабт"}</button>

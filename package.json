@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
@@ -55,7 +56,12 @@
     "sonner": "^2.0.1",
     "superjson": "2.2.2",
     "tailwind-merge": "^3.0.2",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "embla-carousel": "^8.5.2",
+    "embla-carousel-react": "^8.5.2",
+    "react-big-calendar": "^1.19.4",
+    "react-helmet": "^6.1.0",
+    "@testing-library/react": "^16.2.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

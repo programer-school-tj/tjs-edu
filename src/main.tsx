@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import { GlobalContextProviders } from "../components/_globalContextProviders";
 import App from "./App";
 import "../base.css";
+import { registerServiceWorker } from "./registerServiceWorker";
+registerServiceWorker();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("TJS Edu root element was not found");

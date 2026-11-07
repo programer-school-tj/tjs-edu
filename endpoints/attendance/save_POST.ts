@@ -3,7 +3,7 @@ import { db } from "../../helpers/db";
 import { z } from "zod";
 import superjson from "superjson";
 
-const schema = z.object({ institutionId: z.string().uuid(), classId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), records: z.array(z.object({ studentId: z.string().uuid(), status: z.enum(["present","absent","late","excused"]), note: z.string().max(300).optional().default("") })).min(1).max(100) });
+const schema = z.object({ institutionId: z.string().uuid(), classId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => { const [year, month, day] = value.split("-").map(Number); const parsed = new Date(Date.UTC(year, month - 1, day)); return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day; }, "Сана нодуруст аст."), records: z.array(z.object({ studentId: z.string().uuid(), status: z.enum(["present","absent","late","excused"]), note: z.string().max(300).optional().default("") })).min(1).max(100) }).refine(input => new Set(input.records.map(record => record.studentId)).size === input.records.length, "Рӯйхат хонандаи такрорӣ дорад.");
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);

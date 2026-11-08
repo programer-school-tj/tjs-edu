@@ -456,23 +456,7 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "auth.noAccount":"هنوز حساب ندارید؟", "auth.register":"ثبت‌نام",
     "reports.title":"گزارش‌های مؤسسه","reports.subtitle":"خلاصهٔ کارکنان، دانش‌آموزان، تعرفه‌ها و معاش","reports.month":"ماه گزارش","reports.year":"سال تحصیلی","reports.staff":"گزارش کارکنان","reports.finance":"گزارش مالی",
     "reports.print":"چاپ گزارش","reports.export":"Excel (CSV)","reports.loading":"در حال بارگذاری اطلاعات...","reports.staffCount":"معلمان و کارکنان","reports.classes":"صنف‌ها","reports.students":"دانش‌آموزان","reports.tariffRows":"ردیف‌های تعرفه","reports.lessons":"درس‌های برنامه","reports.payrollCount":"تعداد کارکنان دارای معاش","reports.gross":"مجموع начис‌شده","reports.deductions":"کسورات","reports.net":"قابل پرداخت","reports.employee":"کارمند","reports.position":"سمت","reports.employmentType":"نوع کار","reports.subject":"مضمون","reports.status":"وضعیت","reports.active":"فعال","reports.inactive":"غیرفعال","reports.noPayroll":"برای ماه انتخاب‌شده ثبت معاش وجود ندارد.","reports.noStaff":"کارمندی ثبت نشده است.","reports.footer":"اطلاعات از پایگاه دادهٔ مؤسسه دریافت شده است. گزارش مالی باید با اسناد حسابداری تطبیق شود.","reports.error":"بارگذاری گزارش انجام نشد.",
-    "attendance.name":"نام و نام خانوادگی","attendance.title":"حاضری دانش‌آموزان","attendance.subtitle":"ثبت حاضری روزانهٔ دانش‌آموزان","attendance.institution":"مؤسسه","attendance.class":"صنف","attendance.date":"تاریخ","attendance.present":"حاضر","attendance.absent":"غایب","attendance.late":"با تأخیر","attendance.excused":"با عذر","attendance.list":"فهرست دانش‌آموزان","attendance.marked":"از","attendance.markedSuffix":"نفر ثبت شده‌اند","attendance.markAll":"ثبت حضور همه","attendance.export":"Excel (CSV)","attendance.save":"ذخیرهٔ حاضری","attendance.saved":"ذخیره شد","attendance.saveError":"ذخیرهٔ حاضری انجام نشد.","attendance.saving":"در حال ذخیره...","attendance.loading":"در حال بارگذاری فهرست...","attendance.empty":"در صنف انتخاب‌شده دانش‌آموزی نیست.","attendance.number":"شمارهٔ شخصی","attendance.status":"وضعیت","attendance.note":"یادداشت","attendance.choose":"انتخاب کنید","attendance.notePlaceholder":"دلیل غیبت...","attendance.unmarked":"ثبت نشده","attendance.footer":"حاضری بر اساس تاریخ و مؤسسه ذخیره می‌شود."
-  }
-};
-
-type LanguageContextValue = { language: AppLanguage; setLanguage: (language: AppLanguage) => void; t: (key: string) => string };
-const LanguageContext = createContext<LanguageContextValue | null>(null);
-
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AppLanguage>(() => {
-    try {
-      const saved = window.localStorage.getItem("tjs-edu-language");
-      return saved && saved in messages ? saved as AppLanguage : "tg";
-    } catch { return "tg"; }
-  });
-  const setLanguage = useCallback((next: AppLanguage) => {
-    setLanguageState(next);
-    try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ },
+    "attendance.name":"نام و نام خانوادگی","attendance.title":"حاضری دانش‌آموزان","attendance.subtitle":"ثبت حاضری روزانهٔ دانش‌آموزان","attendance.institution":"مؤسسه","attendance.class":"صنف","attendance.date":"تاریخ","attendance.present":"حاضر","attendance.absent":"غایب","attendance.late":"با تأخیر","attendance.excused":"با عذر","attendance.list":"فهرست دانش‌آموزان","attendance.marked":"از","attendance.markedSuffix":"نفر ثبت شده‌اند","attendance.markAll":"ثبت حضور همه","attendance.export":"Excel (CSV)","attendance.save":"ذخیرهٔ حاضری","attendance.saved":"ذخیره شد","attendance.saveError":"ذخیرهٔ حاضری انجام نشد.","attendance.saving":"در حال ذخیره...","attendance.loading":"در حال بارگذاری فهرست...","attendance.empty":"در صنف انتخاب‌شده دانش‌آموزی نیست.","attendance.number":"شمارهٔ شخصی","attendance.status":"وضعیت","attendance.note":"یادداشت","attendance.choose":"انتخاب کنید","attendance.notePlaceholder":"دلیل غیبت...","attendance.unmarked":"ثبت نشده","attendance.footer":"حاضری بر اساس تاریخ و مؤسسه ذخیره می‌شود.",
     "finance.institution":"مؤسسه",
     "finance.tariffEntry":"افزودن ردیف تعرفه",
     "finance.officialNote":"فقط اطلاعات سند رسمی را وارد کنید. منبع و تاریخ اجرا را مشخص کنید.",
@@ -554,6 +538,22 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     "common.thursday":"پنجشنبه",
     "common.friday":"جمعه",
     "common.saturday":"شنبه"
+  }
+};
+
+type LanguageContextValue = { language: AppLanguage; setLanguage: (language: AppLanguage) => void; t: (key: string) => string };
+const LanguageContext = createContext<LanguageContextValue | null>(null);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguageState] = useState<AppLanguage>(() => {
+    try {
+      const saved = window.localStorage.getItem("tjs-edu-language");
+      return saved && saved in messages ? saved as AppLanguage : "tg";
+    } catch { return "tg"; }
+  });
+  const setLanguage = useCallback((next: AppLanguage) => {
+    setLanguageState(next);
+    try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ }
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;

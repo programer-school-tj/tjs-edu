@@ -11,6 +11,12 @@ const schema = z.object({
   templateVersion: z.string().max(80).default("2026-11-05-v1"),
   cells: z.record(z.string().regex(/^[A-Z]{1,3}[1-9][0-9]*$/), z.string().max(2000)).refine((value) => Object.keys(value).length <= 6000, "Ҳуҷайраҳо аз ҳад зиёданд."),
 }).superRefine((input, context) => {
+  if (input.documentType === "payroll" && !/^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(input.periodKey)) {
+    context.addIssue({ code: "custom", path: ["periodKey"], message: "Моҳи табели маош бояд дар шакли YYYY-MM бошад." });
+  }
+  if (input.documentType !== "payroll" && input.periodKey !== "") {
+    context.addIssue({ code: "custom", path: ["periodKey"], message: "Ин навъи бланк давраи моҳонаро қабул намекунад." });
+  }
   const bounds = input.documentType === "tariffing"
     ? { minRow: 5, maxRow: 142, maxColumn: 26 }
     : input.documentType === "payroll"

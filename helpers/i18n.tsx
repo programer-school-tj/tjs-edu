@@ -136,7 +136,20 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "timetable.errorImport":"Воридоти Excel иҷро нашуд.",
     "timetable.errorSaveLesson":"Дарс сабт нашуд.",
     "timetable.generated":"Ҷадвал сохта шуд. Дарсҳои нав: {count}",
-    "timetable.importSuccess":"Муваффақона {count} дарс ворид шуд. Ҳамаи сатрҳо пешакӣ санҷида шуданд."
+    "timetable.importSuccess":"Муваффақона {count} дарс ворид шуд. Ҳамаи сатрҳо пешакӣ санҷида шуданд.",
+    "finance.personalTariff":"Тарифи шахсӣ",
+    "finance.noMatchingTariff":"Барои вазифаи «{position}» тарифи мувофиқ ёфт нашуд. Аввал дар бахши тарификатсия тарифи ҳамин вазифаро ворид кунед.",
+    "finance.tariffAutoAmount":"Маблағ аз тарифи интихобшуда гирифта мешавад ва тағйир дода намешавад.",
+    "finance.saving":"Сабт...",
+    "finance.savePayroll":"Сабти табели маош",
+    "finance.employeeHeader":"КОРМАНД",
+    "finance.positionHeader":"ВАЗИФА",
+    "finance.accountingFooter":"Ҳисобот бояд бо ҳуҷҷатҳои муҳосибӣ санҷида шавад.",
+    "finance.tariffYearHeader":"СОЛ",
+    "timetable.approvedLoadInfo":"Сарбории тасдиқшуда: {approved} соат · Дар ҷадвал: {scheduled} · Боқимонда: {remaining} соат.",
+    "timetable.classGridHeading":"Ҷадвали дарсии синфи {className} · {year}",
+    "timetable.periodSuffix":"-ум соат",
+    "timetable.lessonList":"Ҷадвали дарсҳо ({count})"
   },
   ru: {
     "language.name":"Язык",
@@ -270,7 +283,20 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "timetable.errorImport":"Импорт Excel не выполнен.",
     "timetable.errorSaveLesson":"Не удалось сохранить урок.",
     "timetable.generated":"Расписание создано. Новых уроков: {count}",
-    "timetable.importSuccess":"Успешно импортировано уроков: {count}. Все строки предварительно проверены."
+    "timetable.importSuccess":"Успешно импортировано уроков: {count}. Все строки предварительно проверены.",
+    "finance.personalTariff":"Персональный тариф",
+    "finance.noMatchingTariff":"Для должности «{position}» подходящий тариф не найден. Сначала добавьте тариф для этой должности в разделе тарификации.",
+    "finance.tariffAutoAmount":"Сумма берётся из выбранного тарифа и не может быть изменена.",
+    "finance.saving":"Сохранение...",
+    "finance.savePayroll":"Сохранить ведомость зарплаты",
+    "finance.employeeHeader":"СОТРУДНИК",
+    "finance.positionHeader":"ДОЛЖНОСТЬ",
+    "finance.accountingFooter":"Отчёт необходимо сверить с бухгалтерскими документами.",
+    "finance.tariffYearHeader":"ГОД",
+    "timetable.approvedLoadInfo":"Утверждённая нагрузка: {approved} ч · В расписании: {scheduled} · Осталось: {remaining} ч.",
+    "timetable.classGridHeading":"Расписание класса {className} · {year}",
+    "timetable.periodSuffix":"-й урок",
+    "timetable.lessonList":"Список уроков ({count})"
   },
   en: {
     "language.name":"Language",
@@ -404,7 +430,20 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "timetable.errorImport":"Excel import failed.",
     "timetable.errorSaveLesson":"Could not save lesson.",
     "timetable.generated":"Timetable generated. New lessons: {count}",
-    "timetable.importSuccess":"Successfully imported {count} lessons. All rows were validated first."
+    "timetable.importSuccess":"Successfully imported {count} lessons. All rows were validated first.",
+    "finance.personalTariff":"Personal tariff",
+    "finance.noMatchingTariff":"No matching tariff found for “{position}”. Add a tariff for this position in the tariffing section first.",
+    "finance.tariffAutoAmount":"The amount comes from the selected tariff and cannot be changed.",
+    "finance.saving":"Saving...",
+    "finance.savePayroll":"Save payroll record",
+    "finance.employeeHeader":"EMPLOYEE",
+    "finance.positionHeader":"POSITION",
+    "finance.accountingFooter":"The report must be checked against accounting documents.",
+    "finance.tariffYearHeader":"YEAR",
+    "timetable.approvedLoadInfo":"Approved workload: {approved} h · Scheduled: {scheduled} · Remaining: {remaining} h.",
+    "timetable.classGridHeading":"Class {className} timetable · {year}",
+    "timetable.periodSuffix":" period",
+    "timetable.lessonList":"Lesson list ({count})"
   },
   uz: {
     "language.name":"Til",
@@ -538,7 +577,20 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "timetable.errorImport":"Excel importi bajarilmadi.",
     "timetable.errorSaveLesson":"Darsni saqlab bo‘lmadi.",
     "timetable.generated":"Jadval tuzildi. Yangi darslar: {count}",
-    "timetable.importSuccess":"{count} ta dars muvaffaqiyatli import qilindi. Barcha qatorlar avval tekshirildi."
+    "timetable.importSuccess":"{count} ta dars muvaffaqiyatli import qilindi. Barcha qatorlar avval tekshirildi.",
+    "finance.personalTariff":"Shaxsiy tarif",
+    "finance.noMatchingTariff":"«{position}» lavozimi uchun mos tarif topilmadi. Avval tariflash bo‘limida shu lavozim tarifini kiriting.",
+    "finance.tariffAutoAmount":"Summa tanlangan tarifdan olinadi va uni o‘zgartirib bo‘lmaydi.",
+    "finance.saving":"Saqlanmoqda...",
+    "finance.savePayroll":"Maosh qaydini saqlash",
+    "finance.employeeHeader":"XODIM",
+    "finance.positionHeader":"LAVOZIM",
+    "finance.accountingFooter":"Hisobot buxgalteriya hujjatlari bilan tekshirilishi kerak.",
+    "finance.tariffYearHeader":"YIL",
+    "timetable.approvedLoadInfo":"Tasdiqlangan yuklama: {approved} soat · Jadvalda: {scheduled} · Qoldi: {remaining} soat.",
+    "timetable.classGridHeading":"{className} sinfining dars jadvali · {year}",
+    "timetable.periodSuffix":"-dars",
+    "timetable.lessonList":"Darslar ro‘yxati ({count})"
   },
   fa: {
     "language.name":"زبان",
@@ -688,7 +740,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     "timetable.errorImport":"واردسازی Excel انجام نشد.",
     "timetable.errorSaveLesson":"ذخیرهٔ درس انجام نشد.",
     "timetable.generated":"برنامه ساخته شد. درس‌های جدید: {count}",
-    "timetable.importSuccess":"{count} درس با موفقیت وارد شد. همهٔ ردیف‌ها از پیش بررسی شدند."
+    "timetable.importSuccess":"{count} درس با موفقیت وارد شد. همهٔ ردیف‌ها از پیش بررسی شدند.",
+    "finance.personalTariff":"تعرفهٔ شخصی",
+    "finance.noMatchingTariff":"برای سمت «{position}» تعرفهٔ مناسبی یافت نشد. ابتدا تعرفهٔ این سمت را در بخش تعرفه‌بندی ثبت کنید.",
+    "finance.tariffAutoAmount":"مبلغ از تعرفهٔ انتخاب‌شده گرفته می‌شود و قابل تغییر نیست.",
+    "finance.saving":"در حال ذخیره...",
+    "finance.savePayroll":"ذخیرهٔ جدول معاش",
+    "finance.employeeHeader":"کارمند",
+    "finance.positionHeader":"سمت",
+    "finance.accountingFooter":"گزارش باید با اسناد حسابداری تطبیق شود.",
+    "finance.tariffYearHeader":"سال",
+    "timetable.approvedLoadInfo":"بار کاری تأییدشده: {approved} ساعت · در برنامه: {scheduled} · باقی‌مانده: {remaining} ساعت.",
+    "timetable.classGridHeading":"برنامهٔ درسی صنف {className} · {year}",
+    "timetable.periodSuffix":"مین ساعت",
+    "timetable.lessonList":"فهرست درس‌ها ({count})"
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;

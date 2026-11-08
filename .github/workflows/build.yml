@@ -21,13 +21,19 @@ jobs:
         run: npm run typecheck
       - name: Build production app
         run: npm run build
-      - name: Package source code
-        run: zip -r tjs-edu-source.zip . -x 'node_modules/*' '.git/*' 'dist/*' '.env' '.env.*' 'coverage/*'
-      - name: Upload source archive
+      - name: Upload editable source archive
         uses: actions/upload-artifact@v4
         with:
           name: tjs-edu-source
-          path: tjs-edu-source.zip
+          path: |
+            .
+            !node_modules/**
+            !.git/**
+            !dist/**
+            !coverage/**
+            !.env
+            !.env.*
+            !tjs-edu-source.zip
           if-no-files-found: error
           retention-days: 7
       - name: Upload build output

@@ -697,23 +697,7 @@ const messages: Record<AppLanguage, Record<string, string>> = {
     "common.wednesday":"چهارشنبه",
     "common.thursday":"پنجشنبه",
     "common.friday":"جمعه",
-    "common.saturday":"شنبه"
-  }
-};
-
-type LanguageContextValue = { language: AppLanguage; setLanguage: (language: AppLanguage) => void; t: (key: string) => string };
-const LanguageContext = createContext<LanguageContextValue | null>(null);
-
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AppLanguage>(() => {
-    try {
-      const saved = window.localStorage.getItem("tjs-edu-language");
-      return saved && saved in messages ? saved as AppLanguage : "tg";
-    } catch { return "tg"; }
-  });
-  const setLanguage = useCallback((next: AppLanguage) => {
-    setLanguageState(next);
-    try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ },
+    "common.saturday":"شنبه",
     "timetable.institution":"مؤسسه",
     "timetable.academicYear":"سال تحصیلی",
     "timetable.subjectExample":"مثلاً: انفورماتیک",
@@ -754,6 +738,23 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     "timetable.classGridHeading":"برنامهٔ درسی صنف {className} · {year}",
     "timetable.periodSuffix":"مین ساعت",
     "timetable.lessonList":"فهرست درس‌ها ({count})"
+  }
+};
+
+type LanguageContextValue = { language: AppLanguage; setLanguage: (language: AppLanguage) => void; t: (key: string) => string };
+const LanguageContext = createContext<LanguageContextValue | null>(null);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguageState] = useState<AppLanguage>(() => {
+    try {
+      const saved = window.localStorage.getItem("tjs-edu-language");
+      return saved && saved in messages ? saved as AppLanguage : "tg";
+    } catch { return "tg"; }
+  });
+  const setLanguage = useCallback((next: AppLanguage) => {
+    setLanguageState(next);
+    try { window.localStorage.setItem("tjs-edu-language", next); } catch { /* storage may be unavailable */ }
+
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;

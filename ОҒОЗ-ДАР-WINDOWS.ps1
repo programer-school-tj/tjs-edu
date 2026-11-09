@@ -15,7 +15,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not (Test-Path ".env")) {
-  $secret = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+  $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+  $bytes = New-Object byte[] 48
+  $rng.GetBytes($bytes)
+  $secret = ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+  $rng.Dispose()
   @"
 SESSION_SECRET=$secret
 POSTGRES_PASSWORD=$secret

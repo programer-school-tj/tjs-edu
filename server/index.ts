@@ -29,7 +29,7 @@ const mimeTypes: Record<string, string> = {
 };
 
 function endpointPath(pathname: string, method: string) {
-  const parts = pathname.replace(/^\\/_api\\//, "").split("/").filter(Boolean);
+  const parts = pathname.replace(/^\/_api\//, "").split("/").filter(Boolean);
   if (parts.length !== 2 || !methods[method]) return null;
   const [group, action] = parts;
   if (!/^[a-z0-9_]+$/i.test(group) || !/^[a-z0-9_]+$/i.test(action)) return null;
@@ -40,7 +40,7 @@ async function serveWeb(pathname: string, method: string, outgoing: import("node
   if (method !== "GET" && method !== "HEAD") return false;
   let requestedPath = "/";
   try { requestedPath = decodeURIComponent(pathname); } catch { return false; }
-  const relative = requestedPath.replace(/^\\/+/, "");
+  const relative = requestedPath.replace(/^\/+/, "");
   let target = path.resolve(distRoot, relative || "index.html");
   if (target !== distRoot && !target.startsWith(distRoot + path.sep)) return false;
   try {

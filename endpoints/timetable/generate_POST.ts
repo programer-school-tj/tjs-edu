@@ -12,6 +12,15 @@ const schema = z.object({
 type Slot = { weekday: number; lessonNumber: number; shiftNumber: number };
 type Task = { loadId: string; classId: string; staffId: string; subject: string; shiftNumber: number; grade: number; weeklyHours: number };
 
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
@@ -94,7 +103,7 @@ export async function handle(request: Request) {
         const occupiedTeacher = new Set(teacherSlots);
         const dayClasses = new Map(classDayCounts);
         const dayTeachers = new Map(teacherDayCounts);
-        const remaining = [...tasks].sort(() => Math.random() - 0.5);
+        const remaining = shuffle(tasks);
         const placed: Array<Slot | null> = new Array(remaining.length).fill(null);
         let success = true;
 
@@ -109,14 +118,15 @@ export async function handle(request: Request) {
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < 6
           );
           if (!candidates.length) { success = false; break; }
-          candidates.sort((a, b) => {
-            const score = (slot: Slot) =>
+          const rankedCandidates = candidates.map((slot) => ({
+            slot,
+            score:
               (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) * 10 +
               (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) * 4 +
-              slot.lessonNumber * 0.01 + Math.random() * 0.2;
-            return score(a) - score(b);
-          });
-          const chosen = candidates[0];
+              slot.lessonNumber * 0.01 + Math.random() * 0.2,
+          }));
+          rankedCandidates.sort((a, b) => a.score - b.score);
+          const chosen = rankedCandidates[0].slot;
           placed[i] = chosen;
           occupiedClass.add(`${task.classId}:${chosen.weekday}:${chosen.lessonNumber}`);
           occupiedTeacher.add(`${task.staffId}:${chosen.weekday}:${chosen.shiftNumber}:${chosen.lessonNumber}`);

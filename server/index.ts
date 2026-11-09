@@ -1,8 +1,11 @@
 import { createServer } from "node:http";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
 
 const port = Number(process.env.API_PORT || 3001);
 const root = new URL("../endpoints/", import.meta.url);
+const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 const methods: Record<string, string> = {
   "GET": "GET",
   "POST": "POST",
@@ -11,24 +14,74 @@ const methods: Record<string, string> = {
   "DELETE": "DELETE",
 };
 
+const mimeTypes: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+};
+
 function endpointPath(pathname: string, method: string) {
-  const parts = pathname.replace(/^\/_api\//, "").split("/").filter(Boolean);
+  const parts = pathname.replace(/^\\/_api\\//, "").split("/").filter(Boolean);
   if (parts.length !== 2 || !methods[method]) return null;
   const [group, action] = parts;
   if (!/^[a-z0-9_]+$/i.test(group) || !/^[a-z0-9_]+$/i.test(action)) return null;
   return new URL(`${group}/${action}_${methods[method]}.ts`, root);
 }
 
+async function serveWeb(pathname: string, method: string, outgoing: import("node:http").ServerResponse) {
+  if (method !== "GET" && method !== "HEAD") return false;
+  let requestedPath = "/";
+  try { requestedPath = decodeURIComponent(pathname); } catch { return false; }
+  const relative = requestedPath.replace(/^\\/+/, "");
+  let target = path.resolve(distRoot, relative || "index.html");
+  if (target !== distRoot && !target.startsWith(distRoot + path.sep)) return false;
+  try {
+    const info = await stat(target);
+    if (info.isDirectory()) target = path.join(target, "index.html");
+    const data = await readFile(target);
+    outgoing.writeHead(200, {
+      "content-type": mimeTypes[path.extname(target).toLowerCase()] || "application/octet-stream",
+      "content-length": data.length,
+      "cache-control": target.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable",
+    });
+    outgoing.end(method === "HEAD" ? undefined : data);
+    return true;
+  } catch {
+    if (path.extname(requestedPath)) return false;
+    try {
+      const data = await readFile(path.join(distRoot, "index.html"));
+      outgoing.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
+      outgoing.end(method === "HEAD" ? undefined : data);
+      return true;
+    } catch { return false; }
+  }
+}
+
 const server = createServer(async (incoming, outgoing) => {
-  if (incoming.url === "/health") {
+  const url = new URL(incoming.url || "/", `http://${incoming.headers.host || "localhost"}`);
+  if (url.pathname === "/health") {
     outgoing.writeHead(200, { "content-type": "application/json" });
     outgoing.end(JSON.stringify({ ok: true, service: "tjs-edu-api" }));
     return;
   }
 
-  const url = new URL(incoming.url || "/", `http://${incoming.headers.host || "localhost"}`);
+  if (!url.pathname.startsWith("/_api/")) {
+    if (await serveWeb(url.pathname, incoming.method || "GET", outgoing)) return;
+    outgoing.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    outgoing.end("Not found");
+    return;
+  }
+
   const file = endpointPath(url.pathname, incoming.method || "GET");
-  if (!file || !url.pathname.startsWith("/_api/")) {
+  if (!file) {
     outgoing.writeHead(404, { "content-type": "application/json" });
     outgoing.end(JSON.stringify({ message: "API route not found" }));
     return;
@@ -71,5 +124,5 @@ const server = createServer(async (incoming, outgoing) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(`TJS Edu API listening on :${port}`);
+  console.log(`TJS Edu app/API listening on :${port}`);
 });

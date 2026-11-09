@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "TJS Edu",
   "short_name": "TJS Edu",
   "description": "Низоми рақамии идоракунии муассисаҳои таълимӣ",
@@ -6,7 +7,15 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#f3f6f4",
   "theme_color": "#173b3a",
-  "icons": []
+  "icons": [
+    {
+      "src": "/brand/tjs-edu-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

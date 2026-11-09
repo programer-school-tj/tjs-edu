@@ -10,6 +10,7 @@ export default function PWAInstallPrompt() {
   const [installed, setInstalled] = useState(false);
   const [message, setMessage] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const onBeforeInstall = (event: Event) => {
@@ -40,6 +41,7 @@ export default function PWAInstallPrompt() {
   };
 
   if (installed) return <div role="status" style={bannerStyle}>✓ {message}</div>;
+  if (dismissed) return null;
 
   return (
     <aside style={bannerStyle} aria-live="polite">
@@ -54,7 +56,7 @@ export default function PWAInstallPrompt() {
       {installEvent
         ? <button type="button" onClick={() => void install()} style={buttonStyle}>Насб кардан</button>
         : <button type="button" onClick={() => setHelpOpen((open) => !open)} style={buttonStyle}>{helpOpen ? "Пинҳон кардан" : "Роҳнамо"}</button>}
-      <button type="button" aria-label="Пӯшидан" onClick={() => { setMessage(""); setHelpOpen(false); }} style={closeStyle}>×</button>
+      <button type="button" aria-label="Пӯшидан" onClick={() => { setMessage(""); setHelpOpen(false); setDismissed(true); }} style={closeStyle}>×</button>
     </aside>
   );
 }

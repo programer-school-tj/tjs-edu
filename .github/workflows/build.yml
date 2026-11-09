@@ -21,6 +21,8 @@ jobs:
         run: npm run typecheck
       - name: Build production app
         run: npm run build
+      - name: Validate Docker production image
+        run: docker build -t tjs-edu:ci .
       - name: Upload editable source archive
         uses: actions/upload-artifact@v4
         with:

@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tjs_edu
+      POSTGRES_USER: tjsedu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tjsedu_local_change_me}
+    volumes:
+      - tjs_edu_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tjsedu -d tjs_edu"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://tjsedu:${POSTGRES_PASSWORD:-tjsedu_local_change_me}@db:5432/tjs_edu
+      SESSION_SECRET: ${SESSION_SECRET:?Create .env first}
+      API_PORT: 3001
+      NODE_ENV: production
+    ports:
+      - "8080:3001"
+
+volumes:
+  tjs_edu_db:

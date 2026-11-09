@@ -10,7 +10,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "start:api": "node --env-file-if-exists=.env --import tsx server/index.ts",
     "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
-    "admin:promote": "node --env-file-if-exists=.env --import tsx scripts/promote-admin.ts"
+    "admin:promote": "node --env-file-if-exists=.env --import tsx scripts/promote-admin.ts",
+    "dev:all": "node --env-file-if-exists=.env scripts/dev-all.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

@@ -15,9 +15,10 @@ import StudentsPage from "../pages/students";
 import TariffsPage from "../pages/tariffs";
 import TimetablePage from "../pages/timetable";
 import PlansPage from "../pages/plans";
+import PWAInstallPrompt from "../components/PWAInstallPrompt";
 
 export default function App() {
-  return <Routes>
+  return <><Routes>
     <Route path="/" element={<HomePage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage />} />
@@ -34,5 +35,5 @@ export default function App() {
     <Route path="/timetable" element={<TimetablePage />} />
     <Route path="/plans" element={<PlansPage />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>;
+  </Routes><PWAInstallPrompt /></>;
 }

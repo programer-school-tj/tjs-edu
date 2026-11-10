@@ -32,7 +32,7 @@ export default function TariffsPage() {
     }).catch((error) => setErr(error.message));
   }, []);
   useEffect(() => { if (school) void Promise.all([getTariffs(school), getStaff(school)]).then(([tariffRows, staffRows]) => { setRows(tariffRows); setStaff(staffRows.filter((item: any) => item.isActive)); }).catch((error) => setErr(error.message)); }, [school]);
-  const templateCells = useMemo(() => buildTariffTemplateCells(staff, rows, f.academicYear), [staff, rows, f.academicYear]);
+  const templateCells = useMemo(() => buildTariffTemplateCells(staff, rows, f.academicYear, new Date(`${f.effectiveFrom}T00:00:00`)), [staff, rows, f.academicYear]);
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setErr("");

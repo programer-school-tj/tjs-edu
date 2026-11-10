@@ -44,7 +44,6 @@ export default function PayrollPage() {
   }, [school]);
   useEffect(() => { if (school) void getPayroll(school, month).then(setRows).catch((error) => setErr(error.message)); }, [school, month]);
 
-  const templateCells = useMemo(() => buildPayrollTemplateCells(staff, tariffs, rows, "2026-2027", month), [staff, tariffs, rows, month]);
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const selectedStaff = staff.find((item) => item.id === f.staffId);
   const [monthYear, monthNumber] = month.split("-").map(Number);
@@ -52,6 +51,7 @@ export default function PayrollPage() {
   const academicYear = monthNumber >= 9
     ? `${monthYear}-${monthYear + 1}`
     : `${monthYear - 1}-${monthYear}`;
+  const templateCells = useMemo(() => buildPayrollTemplateCells(staff, tariffs, rows, academicYear, month), [staff, tariffs, rows, academicYear, month]);
   const matchingTariffs = tariffs.filter((item) => {
     if (item.academicYear !== academicYear) return false;
     const from = new Date(item.effectiveFrom);
@@ -85,7 +85,7 @@ export default function PayrollPage() {
     <header><div><small>TJS EDU · МОЛИЯ</small><h1>{t("finance.payrollTitle")}</h1><p>{t("finance.payrollSubtitle")}</p></div><div className={styles.actions}><LanguageSwitcher /><button className={styles.printButton} onClick={() => window.print()}>🖨 {t("common.printA4")}</button><button onClick={() => nav("/")}>← {t("common.mainDashboard")}</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>{t("finance.institution")}<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>{t("finance.month")}<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label></div></section>
-    {school && <div className={styles.templateArea}><ExcelTemplateEditor title={t("finance.payrollTitle")} templateUrl="/_cdn/static/aef649ff-c65f-4d60-b3d4-b819d651e1dc-saformad-payroll-template.xlsx" documentType="payroll" institutionId={school} academicYear="2026-2027" periodKey={month} worksheetName="Лист1" headerRows={4} maxRows={152} maxColumns={30} editableThroughRow={142} prefillCells={templateCells} orientation="landscape" printScale={0.7} /></div>}
+    {school && <div className={styles.templateArea}><ExcelTemplateEditor title={t("finance.payrollTitle")} templateUrl="/_cdn/static/aef649ff-c65f-4d60-b3d4-b819d651e1dc-saformad-payroll-template.xlsx" documentType="payroll" institutionId={school} academicYear={academicYear} periodKey={month} worksheetName="Лист1" headerRows={4} maxRows={152} maxColumns={30} editableThroughRow={142} prefillCells={templateCells} orientation="landscape" printScale={0.7} /></div>}
     <section className={styles.panel}><h2>{t("finance.payrollEntry")}</h2><p className={styles.note}>{t("finance.payrollNote")}</p><form onSubmit={save}>
       <label>{t("finance.employee")}<select required value={f.staffId} onChange={(event) => { const staffId = event.target.value; setF((value) => ({ ...value, staffId, tariffId: "", baseAmount: "" })); }}><option value="">{t("finance.select")}</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.positionTitle}</option>)}</select></label>
       <label>{t("finance.category")}<select value={f.tariffId} onChange={(event) => { const id = event.target.value; const tariff = availableTariffs.find((item) => item.id === id); setF((value) => ({ ...value, tariffId: id, baseAmount: tariff ? String(tariff.monthlyBase) : value.baseAmount })); }}><option value="">{t("finance.noLink")}</option>{availableTariffs.map((item) => <option key={item.id} value={item.id}>{item.staffId ? t("finance.personalTariff") : item.positionTitle} · {item.qualificationCategory || ""} · {item.monthlyBase} сомонӣ</option>)}</select>{selectedStaff && matchingTariffs.length === 0 && <small className={styles.note}>{t("finance.noMatchingTariff").replace("{position}", selectedStaff.positionTitle)}</small>}</label>

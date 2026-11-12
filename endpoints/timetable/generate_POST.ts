@@ -48,6 +48,7 @@ export async function handle(request: Request) {
       ]);
       if (!loads.length) throw new Error("NO_TEACHING_LOADS");
       const staffMap = new Map(staff.map((row) => [row.id, row]));
+      if (loads.some((load) => !staffMap.has(load.staffId))) throw new Error("LOAD_TEACHER_NOT_ACTIVE");
       const loadHours = new Map<string, number>();
       const remainingLoadCapacity = new Map<string, number>();
       for (const load of loads) {
@@ -152,6 +153,7 @@ export async function handle(request: Request) {
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     const message = code === "NO_TEACHING_LOADS" ? "Аввал сарбории омӯзгоронро ворид кунед."
+      : code === "LOAD_TEACHER_NOT_ACTIVE" ? "Дар сарбории фаннӣ омӯзгори ғайрифаъол ёфт шуд. Омӯзгорро фаъол кунед ё сарбориро ислоҳ намоед."
       : code === "FRACTIONAL_LOAD" ? "Барои ҷадвали дарсӣ соатҳои ҳарҳафтаина бояд адади бутун бошанд."
       : code === "LOAD_EXCEEDS_APPROVED" ? "Ҷамъи сарбории фаннӣ аз сарбории тасдиқшудаи омӯзгор зиёд аст."
       : code === "SCHEDULE_NOT_FIT" ? "Бо маҳдудиятҳои ҷорӣ ҳамаи дарсҳо ҷой нагирифтанд. Сарборӣ ё маҳдудиятҳоро аз нав санҷед."

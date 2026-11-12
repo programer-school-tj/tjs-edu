@@ -113,7 +113,12 @@ export async function handle(request: Request) {
       : code === "IMPORT_WORKLOAD_EXCEEDED" ? "Соатҳои воридшаванда аз сарбории тасдиқшудаи омӯзгор зиёд мешаванд."
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди амалиёти ройгони ҷадвали дарсӣ истифода шуд. Барои идома ба нақшаи PRO гузаред."
       : "Ворид кардани ҷадвал иҷро нашуд.";
-    const status = code === "PLAN_LIMIT_REACHED" ? 402 : (rowMatch?.[2] === "CONFLICT" || rowMatch?.[2] === "TEACHER_UNAVAILABLE" || rowMatch?.[2] === "TEACHER_DAILY_LIMIT") ? 409 : 400;
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401
+      : code === "PLAN_LIMIT_REACHED" ? 402
+      : rowMatch?.[2] === "CLASS_NOT_FOUND" || rowMatch?.[2] === "TEACHER_NOT_FOUND" ? 404
+      : rowMatch?.[2] === "CONFLICT" || rowMatch?.[2] === "TEACHER_UNAVAILABLE" || rowMatch?.[2] === "TEACHER_DAILY_LIMIT" ? 409
+      : code === "IMPORT_WORKLOAD_EXCEEDED" ? 422
+      : error instanceof z.ZodError ? 400 : 500;
     return new Response(superjson.stringify({ message, code: code || undefined }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

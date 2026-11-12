@@ -51,6 +51,6 @@ export async function handle(request: Request) {
       message: error instanceof z.ZodError ? "Маълумоти дастрасии омӯзгор нодуруст аст."
         : code === "STAFF_NOT_FOUND" ? "Омӯзгори интихобшуда дар муассиса ёфт нашуд."
         : "Қоидаҳои дастрасии омӯзгор сабт нашуданд.",
-    }), { status: code === "STAFF_NOT_FOUND" ? 404 : 400, headers: { "Content-Type": "application/json" } });
+    }), { status: (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : code === "STAFF_NOT_FOUND" ? 404 : 409, headers: { "Content-Type": "application/json" } });
   }
 }

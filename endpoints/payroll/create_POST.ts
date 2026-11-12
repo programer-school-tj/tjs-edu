@@ -4,14 +4,16 @@ import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
 
+const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-7;
+
 const schema = z.object({
   institutionId: z.string().uuid(),
   staffId: z.string().uuid(),
   payrollMonth: z.string().regex(/^20[0-9]{2}-(0[1-9]|1[0-2])$/),
   tariffId: z.string().uuid().optional(),
-  baseAmount: z.number().min(0).max(1000000),
-  allowances: z.number().min(0).max(1000000).default(0),
-  deductions: z.number().min(0).max(1000000).default(0),
+  baseAmount: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Маблағи асосӣ бояд то 2 рақами пас аз вергул бошад."),
+  allowances: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Иловапулӣ бояд то 2 рақами пас аз вергул бошад.").default(0),
+  deductions: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Нигоҳдошт бояд то 2 рақами пас аз вергул бошад.").default(0),
   notes: z.string().max(1000).optional(),
 });
 
@@ -36,7 +38,8 @@ export async function handle(request: Request) {
         .where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst();
       if (!staff) throw new Error("STAFF_NOT_FOUND");
 
-      let baseAmount = x.baseAmount;
+      // Ҳисобҳои пулӣ бо дирам (integer cents) иҷро мешаванд, то хатои float ҷамъ нашавад.
+      let baseAmountCents = Math.round(x.baseAmount * 100);
       if (x.tariffId) {
         const tariff = await trx.selectFrom("institutionTariffs")
           .select(["id", "staffId", "positionTitle", "monthlyBase", "effectiveFrom", "effectiveTo", "academicYear"])
@@ -46,15 +49,22 @@ export async function handle(request: Request) {
         if (tariff.positionTitle.trim().toLocaleLowerCase() !== staff.positionTitle.trim().toLocaleLowerCase()) throw new Error("TARIFF_POSITION_MISMATCH");
         const monthDate = new Date(`${x.payrollMonth}-01T00:00:00.000Z`);
         if (tariff.effectiveFrom > monthDate || (tariff.effectiveTo && tariff.effectiveTo < monthDate)) throw new Error("TARIFF_NOT_EFFECTIVE");
-        baseAmount = Number(tariff.monthlyBase);
+        baseAmountCents = Math.round(Number(tariff.monthlyBase) * 100);
       }
 
-      const grossAmount = baseAmount + x.allowances;
-      if (x.deductions > grossAmount) throw new Error("DEDUCTIONS_EXCEED_GROSS");
+      const allowancesCents = Math.round(x.allowances * 100);
+      const deductionsCents = Math.round(x.deductions * 100);
+      const grossAmountCents = baseAmountCents + allowancesCents;
+      if (deductionsCents > grossAmountCents) throw new Error("DEDUCTIONS_EXCEED_GROSS");
+      const baseAmount = baseAmountCents / 100;
+      const allowances = allowancesCents / 100;
+      const grossAmount = grossAmountCents / 100;
+      const deductions = deductionsCents / 100;
+      const netAmount = (grossAmountCents - deductionsCents) / 100;
       return trx.insertInto("institutionPayrollEntries").values({
         institutionId: x.institutionId, staffId: x.staffId, payrollMonth: new Date(`${x.payrollMonth}-01T00:00:00.000Z`),
-        tariffId: x.tariffId || null, baseAmount, allowances: x.allowances, grossAmount,
-        deductions: x.deductions, netAmount: grossAmount - x.deductions, notes: x.notes || null, createdBy: user.id,
+        tariffId: x.tariffId || null, baseAmount, allowances, grossAmount,
+        deductions, netAmount, notes: x.notes || null, createdBy: user.id,
       }).returningAll().executeTakeFirstOrThrow();
     });
     return new Response(superjson.stringify({ entry: outcome.result, operationCount: outcome.operationCount, plan: outcome.plan }), { status: 201, headers: { "Content-Type": "application/json" } });

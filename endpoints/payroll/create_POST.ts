@@ -60,6 +60,17 @@ export async function handle(request: Request) {
     return new Response(superjson.stringify({ entry: outcome.result, operationCount: outcome.operationCount, plan: outcome.plan }), { status: 201, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
+    const databaseCode = (error as { code?: string })?.code;
+    const isDuplicatePayroll = databaseCode === "23505";
+    const knownCodes = new Set([
+      "PLAN_LIMIT_REACHED",
+      "STAFF_NOT_FOUND",
+      "TARIFF_NOT_FOUND",
+      "TARIFF_STAFF_MISMATCH",
+      "TARIFF_POSITION_MISMATCH",
+      "TARIFF_NOT_EFFECTIVE",
+      "DEDUCTIONS_EXCEED_GROSS",
+    ]);
     const message = error instanceof z.ZodError ? "Маълумоти табели маош нодуруст аст."
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди 5 амалиёти ройгони табели маош истифода шуд. Барои идома ба нақшаи PRO гузаред."
       : code === "STAFF_NOT_FOUND" ? "Корманд ёфт нашуд."
@@ -68,8 +79,22 @@ export async function handle(request: Request) {
       : code === "TARIFF_POSITION_MISMATCH" ? "Вазифаи тариф ба вазифаи корманд мувофиқат намекунад."
       : code === "TARIFF_NOT_EFFECTIVE" ? "Тарифи интихобшуда дар моҳи ҳисоботӣ амал намекунад."
       : code === "DEDUCTIONS_EXCEED_GROSS" ? "Нигоҳдоштиҳо аз маблағи ҳисобшуда зиёд буда наметавонанд."
-      : "Сабти маош иҷро нашуд. Барои ин корманд ва моҳ шояд сабт аллакай вуҷуд дорад.";
-    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : code === "PLAN_LIMIT_REACHED" ? 402 : code === "TARIFF_NOT_FOUND" || code === "STAFF_NOT_FOUND" ? 404 : 400;
-    return new Response(superjson.stringify({ message, code: code || undefined }), { status, headers: { "Content-Type": "application/json" } });
+      : isDuplicatePayroll ? "Барои ин корманд дар моҳи интихобшуда табели маош аллакай сабт шудааст."
+      : "Ҳангоми сабти табели маош хатои дохилӣ рух дод. Лутфан баъдтар такрор кунед.";
+    const isAuthError = (error as { name?: string })?.name === "NotAuthenticatedError";
+    const isValidationError = error instanceof z.ZodError || [
+      "TARIFF_STAFF_MISMATCH",
+      "TARIFF_POSITION_MISMATCH",
+      "TARIFF_NOT_EFFECTIVE",
+      "DEDUCTIONS_EXCEED_GROSS",
+    ].includes(code);
+    const status = isAuthError ? 401
+      : code === "PLAN_LIMIT_REACHED" ? 402
+      : code === "TARIFF_NOT_FOUND" || code === "STAFF_NOT_FOUND" ? 404
+      : isDuplicatePayroll ? 409
+      : isValidationError ? 400
+      : 500;
+    const publicCode = isDuplicatePayroll ? "PAYROLL_ALREADY_EXISTS" : knownCodes.has(code) ? code : undefined;
+    return new Response(superjson.stringify({ message, code: publicCode }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

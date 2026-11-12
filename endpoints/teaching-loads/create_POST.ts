@@ -40,6 +40,7 @@ export async function handle(request: Request) {
     return new Response(superjson.stringify({ load: row }), { status: 201, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const message = error instanceof z.ZodError ? "Маълумоти сарборӣ нодуруст аст." : "Сарбории фаннӣ сабт нашуд. Эҳтимол ин сабт аллакай вуҷуд дорад.";
-    return new Response(superjson.stringify({ message }), { status: 400, headers: { "Content-Type": "application/json" } });
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : 409;
+    return new Response(superjson.stringify({ message }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

@@ -115,7 +115,8 @@ export async function handle(request: Request) {
             !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.shiftNumber}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
-            (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < 6
+            (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < 6 &&
+            (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < 6
           );
           if (!candidates.length) { success = false; break; }
           const rankedCandidates = candidates.map((slot) => ({
@@ -155,6 +156,9 @@ export async function handle(request: Request) {
       : code === "LOAD_EXCEEDS_APPROVED" ? "Ҷамъи сарбории фаннӣ аз сарбории тасдиқшудаи омӯзгор зиёд аст."
       : code === "SCHEDULE_NOT_FIT" ? "Бо маҳдудиятҳои ҷорӣ ҳамаи дарсҳо ҷой нагирифтанд. Сарборӣ ё маҳдудиятҳоро аз нав санҷед."
       : "Тартиб додани ҷадвали худкор иҷро нашуд.";
-    return new Response(superjson.stringify({ message, code: code || undefined }), { status: code === "SCHEDULE_NOT_FIT" ? 409 : 400, headers: { "Content-Type": "application/json" } });
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401
+      : code === "PLAN_LIMIT_REACHED" ? 402
+      : code === "SCHEDULE_NOT_FIT" ? 409 : 400;
+    return new Response(superjson.stringify({ message, code: code || undefined }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

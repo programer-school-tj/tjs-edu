@@ -1,7 +1,12 @@
 name: TJS Edu build
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'work/**'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 permissions:
   contents: read

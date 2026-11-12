@@ -69,7 +69,7 @@ export async function handle(request: Request) {
       : code === "TARIFF_NOT_EFFECTIVE" ? "Тарифи интихобшуда дар моҳи ҳисоботӣ амал намекунад."
       : code === "DEDUCTIONS_EXCEED_GROSS" ? "Нигоҳдоштиҳо аз маблағи ҳисобшуда зиёд буда наметавонанд."
       : "Сабти маош иҷро нашуд. Барои ин корманд ва моҳ шояд сабт аллакай вуҷуд дорад.";
-    const status = code === "PLAN_LIMIT_REACHED" ? 402 : code === "TARIFF_NOT_FOUND" || code === "STAFF_NOT_FOUND" ? 404 : 400;
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : code === "PLAN_LIMIT_REACHED" ? 402 : code === "TARIFF_NOT_FOUND" || code === "STAFF_NOT_FOUND" ? 404 : 400;
     return new Response(superjson.stringify({ message, code: code || undefined }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

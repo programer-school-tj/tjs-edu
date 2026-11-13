@@ -56,8 +56,8 @@ export default function TariffsPage() {
       <label>{t("finance.position")}<input required value={f.positionTitle} onChange={(event) => set("positionTitle", event.target.value)} /></label>
       <label>{t("finance.education")}<select value={f.educationLevel} onChange={(event) => set("educationLevel", event.target.value)}><option>{t("finance.higher")}</option><option>{t("finance.specialSecondary")}</option><option>{t("finance.secondary")}</option></select></label>
       <label>{t("finance.category")}<input value={f.qualificationCategory} onChange={(event) => set("qualificationCategory", event.target.value)} /></label>
-      <label>{t("finance.weeklyHours")}<input type="number" min="0" max="60" step="0.5" value={f.weeklyHours} onChange={(event) => set("weeklyHours", event.target.value)} /></label>
-      <label>{t("finance.baseSalary")}<input required type="number" min="0" step="0.01" value={f.monthlyBase} onChange={(event) => set("monthlyBase", event.target.value)} /></label>
+      <label>{t("finance.weeklyHours")}<input type="number" min="0.5" max="60" step="0.5" value={f.weeklyHours} onChange={(event) => set("weeklyHours", event.target.value)} /></label>
+      <label>{t("finance.baseSalary")}<input required type="number" min="0.01" step="0.01" value={f.monthlyBase} onChange={(event) => set("monthlyBase", event.target.value)} /></label>
       <label>{t("finance.academicYear")}<input required value={f.academicYear} onChange={(event) => set("academicYear", event.target.value)} /></label>
       <label>{t("finance.fromDate")}<input required type="date" value={f.effectiveFrom} onChange={(event) => set("effectiveFrom", event.target.value)} /></label>
       <label>{t("finance.toDate")}<input type="date" value={f.effectiveTo} onChange={(event) => set("effectiveTo", event.target.value)} /></label>

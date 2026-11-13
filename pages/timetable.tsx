@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getClasses } from "../helpers/educationClient";
 import { getStaff } from "../helpers/staffClient";
-import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability } from "../helpers/financeScheduleClient";
+import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability, getTimetableSettings, saveTimetableSettings } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
@@ -24,6 +24,11 @@ export default function TimetablePage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loads, setLoads] = useState<any[]>([]);
   const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [timetableSettings, setTimetableSettings] = useState<any>({
+    schoolDays: 6, maxLessonsPerDay: 6, teacherDailyLimit: 6, classDailyLimit: 6,
+    shiftSplitGrade: 7, teacherDailyLimits: {}, classDailyLimits: {},
+  });
   const [availabilityStaffId, setAvailabilityStaffId] = useState("");
   const [availabilityWeekday, setAvailabilityWeekday] = useState("5");
   const [availabilityLesson, setAvailabilityLesson] = useState("0");
@@ -60,7 +65,7 @@ export default function TimetablePage() {
   }, [school]);
 
   useEffect(() => {
-    if (school) void Promise.all([getTimetable(school, year), getTeachingLoads(school, year), getStaffAvailability(school, year)]).then(([entries, allocations, availability]) => { setRows(entries); setLoads(allocations); setAvailabilitySlots(availability); }).catch((error) => setErr(error.message));
+    if (school) void Promise.all([getTimetable(school, year), getTeachingLoads(school, year), getStaffAvailability(school, year), getTimetableSettings(school, year)]).then(([entries, allocations, availability, settings]) => { setRows(entries); setLoads(allocations); setAvailabilitySlots(availability); setTimetableSettings(settings); }).catch((error) => setErr(error.message));
   }, [school, year]);
 
   const selectedTeacher = staff.find((item) => item.id === f.staffId);
@@ -74,6 +79,20 @@ export default function TimetablePage() {
 
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const setLoad = (key: string, value: string) => setLoadForm((current) => ({ ...current, [key]: value }));
+  const updateDailyLimit = (kind: "teacherDailyLimits" | "classDailyLimits", id: string, value: string) => setTimetableSettings((current: any) => {
+    const next = { ...current, [kind]: { ...(current[kind] || {}) } };
+    if (value === "default") delete next[kind][id];
+    else next[kind][id] = Number(value);
+    return next;
+  });
+  const saveSettings = async (event: React.FormEvent) => {
+    event.preventDefault(); setSettingsBusy(true); setErr("");
+    try {
+      await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings });
+      window.alert("Танзимоти ҷадвали дарсӣ сабт шуд.");
+    } catch (error) { setErr(error instanceof Error ? error.message : "Танзимот сабт нашуд."); }
+    finally { setSettingsBusy(false); }
+  };
   const saveLoad = async (event: React.FormEvent) => { event.preventDefault(); setLoadBusy(true); setErr(""); try { await addTeachingLoad({ institutionId: school, ...loadForm, weeklyHours: Number(loadForm.weeklyHours), academicYear: year }); setLoads(await getTeachingLoads(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorLoad")); } finally { setLoadBusy(false); } };
   const saveAvailability = async (event: React.FormEvent) => { event.preventDefault(); if (!availabilityStaffId) return; setAvailabilityBusy(true); setErr(""); try { const weekday = Number(availabilityWeekday); const lessonNumber = Number(availabilityLesson); const current = availabilitySlots.filter((slot) => slot.staffId === availabilityStaffId && !(slot.weekday === weekday && (lessonNumber === 0 || slot.lessonNumber === 0 || slot.lessonNumber === lessonNumber))); const next = [...current, { weekday, lessonNumber }]; await saveStaffAvailability({ institutionId: school, staffId: availabilityStaffId, academicYear: year, slots: next.map((slot) => ({ weekday: slot.weekday, lessonNumber: slot.lessonNumber })) }); setAvailabilitySlots(await getStaffAvailability(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorAvailability")); } finally { setAvailabilityBusy(false); } };
   const removeAvailability = async (slot: any) => { setAvailabilityBusy(true); setErr(""); try { const next = availabilitySlots.filter((item) => item.staffId === slot.staffId && item.id !== slot.id); await saveStaffAvailability({ institutionId: school, staffId: slot.staffId, academicYear: year, slots: next.map((item) => ({ weekday: item.weekday, lessonNumber: item.lessonNumber })) }); setAvailabilitySlots(await getStaffAvailability(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorRemove")); } finally { setAvailabilityBusy(false); } };
@@ -84,8 +103,8 @@ export default function TimetablePage() {
     const sheet = workbook.addWorksheet("Ҷадвали дарсӣ");
     sheet.columns = [
       { header: "Синф", key: "class", width: 14 },
-      { header: "Рӯз (1-6)", key: "day", width: 14 },
-      { header: "Соати дарс (1-6)", key: "lesson", width: 18 },
+      { header: `Рӯз (1-${timetableSettings.schoolDays})`, key: "day", width: 14 },
+      { header: `Соати дарс (1-${timetableSettings.maxLessonsPerDay})`, key: "lesson", width: 18 },
       { header: "Фан", key: "subject", width: 24 },
       { header: "Омӯзгор (ному насаб)", key: "teacher", width: 32 },
       { header: "Кабинет", key: "room", width: 14 },
@@ -148,7 +167,7 @@ export default function TimetablePage() {
         const lessonNumber = Number(read(lessonCol));
         const subject = read(subjectCol);
         const teacherName = read(teacherCol);
-        if (weekday < 1 || weekday > 6 || !Number.isInteger(lessonNumber) || lessonNumber < 1 || lessonNumber > 6 || subject.length < 2 || teacherName.length < 2) {
+        if (weekday < 1 || weekday > timetableSettings.schoolDays || !Number.isInteger(lessonNumber) || lessonNumber < 1 || lessonNumber > timetableSettings.maxLessonsPerDay || subject.length < 2 || teacherName.length < 2) {
           throw new Error("Маълумоти сатри " + rowNumber + " пурра ё дуруст нест.");
         }
         rowsToImport.push({ grade: Number(classMatch[1]), section: classMatch[2], weekday, lessonNumber, subject, teacherName, room: read(roomCol) });
@@ -183,6 +202,22 @@ export default function TimetablePage() {
     <header><div><small>TJS EDU · ТАШКИЛИ РАВАНДИ ТАЪЛИМ</small><h1>{t("finance.timetableTitle")}</h1><p>{t("finance.timetableSubtitle")}</p></div><div className={styles.actions}><LanguageSwitcher /><button className={styles.printButton} onClick={() => window.print()}>🖨 {t("common.printA4")}</button><button onClick={() => nav("/")}>← {t("common.mainDashboard")}</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
     <section className={styles.panel}><div className={styles.filters}><label>{t("timetable.institution")}<select value={school} onChange={(event) => setSchool(event.target.value)}>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>{t("timetable.academicYear")}<input value={year} onChange={(event) => setYear(event.target.value)} /></label></div></section>
+    <section className={styles.panel}>
+      <h2>Танзимоти чандири ҷадвали дарсӣ</h2>
+      <p className={styles.note}>Шумораи рӯзҳо ва соатҳои синфу омӯзгорро барои соли таҳсили интихобшуда муайян кунед. Меъёрҳои инфиродӣ аз меъёри умумӣ бартарӣ доранд.</p>
+      <form onSubmit={saveSettings}>
+        <div className={styles.filters}>
+          <label>Рӯзҳои таҳсил<select value={timetableSettings.schoolDays} onChange={(event) => setTimetableSettings((v: any) => ({ ...v, schoolDays: Number(event.target.value) }))}><option value={5}>5 рӯз</option><option value={6}>6 рӯз</option></select></label>
+          <label>Ҳадди дарси синф дар як рӯз<select value={timetableSettings.classDailyLimit} onChange={(event) => setTimetableSettings((v: any) => ({ ...v, classDailyLimit: Number(event.target.value) }))}>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></label>
+          <label>Ҳадди дарси омӯзгор дар як рӯз<select value={timetableSettings.teacherDailyLimit} onChange={(event) => setTimetableSettings((v: any) => ({ ...v, teacherDailyLimit: Number(event.target.value) }))}>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></label>
+          <label>Шумораи соатҳои рӯз<select value={timetableSettings.maxLessonsPerDay} onChange={(event) => setTimetableSettings((v: any) => ({ ...v, maxLessonsPerDay: Number(event.target.value) }))}>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></label>
+          <label>Синфи охирини басти 2<select value={timetableSettings.shiftSplitGrade} onChange={(event) => setTimetableSettings((v: any) => ({ ...v, shiftSplitGrade: Number(event.target.value) }))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}-ум</option>)}</select></label>
+        </div>
+        <div className={styles.table}><h3>Меъёри инфиродии омӯзгорон</h3><table><thead><tr><th>Омӯзгор</th><th>Ҳадди дарс дар як рӯз</th></tr></thead><tbody>{staff.map((teacher) => <tr key={teacher.id}><td>{teacher.fullName}</td><td><select value={timetableSettings.teacherDailyLimits?.[teacher.id] ?? "default"} onChange={(event) => updateDailyLimit("teacherDailyLimits", teacher.id, event.target.value)}><option value="default">Аз меъёри умумӣ ({timetableSettings.teacherDailyLimit})</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></td></tr>)}</tbody></table></div>
+        <div className={styles.table}><h3>Меъёри инфиродии синфҳо</h3><table><thead><tr><th>Синф</th><th>Ҳадди дарс дар як рӯз</th></tr></thead><tbody>{classes.slice().sort((a,b) => a.grade-b.grade || a.section.localeCompare(b.section)).map((cls) => <tr key={cls.id}><td>{cls.grade}{cls.section}</td><td><select value={timetableSettings.classDailyLimits?.[cls.id] ?? "default"} onChange={(event) => updateDailyLimit("classDailyLimits", cls.id, event.target.value)}><option value="default">Аз меъёри умумӣ ({timetableSettings.classDailyLimit})</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></td></tr>)}</tbody></table></div>
+        <button disabled={settingsBusy || !school}>{settingsBusy ? "Сабт шуда истодааст..." : "Сабти танзимоти ҷадвал"}</button>
+      </form>
+    </section>
     {school && <div className={styles.templateArea}><ExcelTemplateEditor title="Ҷадвали дарсӣ · соли таҳсили 2026–2027" templateUrl="/_cdn/static/8013df35-8713-4a50-a42b-3a152917199a-timetable-template.xlsx" documentType="timetable" institutionId={school} academicYear={year} worksheetName="Лист3" headerRows={3} maxRows={81} maxColumns={27} orientation="portrait" printScale={0.55} /></div>}
     <section className={styles.panel}><h2>{t("timetable.importTitle")}</h2><p className={styles.note}>{t("timetable.importNote")}</p><div className={styles.importActions}><button type="button" className={styles.secondaryButton} onClick={() => void downloadImportTemplate()} disabled={!school || importBusy}>{t("timetable.downloadTemplate")}</button><label className={styles.importFile}>{t("timetable.chooseFile")}<input type="file" accept=".xlsx" onChange={importExcel} disabled={!school || importBusy} /></label></div>{importBusy && <p className={styles.note}>{t("timetable.importing")}</p>}{importStatus && <p className={styles.importSuccess}>{importStatus}</p>}</section>
     <section className={styles.panel}><h2>{t("timetable.loadTitle")}</h2><p className={styles.note}>{t("timetable.loadNote")}</p><form onSubmit={saveLoad}>
@@ -194,8 +229,8 @@ export default function TimetablePage() {
     </form><div className={styles.table}><table><thead><tr><th>{t("timetable.class").toLocaleUpperCase()}</th><th>{t("timetable.subject").toLocaleUpperCase()}</th><th>{t("timetable.teacher").toLocaleUpperCase()}</th><th>{t("timetable.hoursWeek").toLocaleUpperCase()}</th></tr></thead><tbody>{loads.map((row) => <tr key={row.id}><td>{row.grade}{row.section}</td><td>{row.subject}</td><td>{row.teacherName}</td><td>{Number(row.weeklyHours)}</td></tr>)}</tbody></table>{!loads.length && <p>{t("timetable.noLoads")}</p>}</div><button type="button" disabled={loadBusy || !loads.length} onClick={generate}>{t("timetable.autoGenerate")}</button></section>
     <section className={styles.panel}><h2>{t("timetable.availabilityTitle")}</h2><p className={styles.note}>{t("timetable.availabilityNote")}</p><form onSubmit={saveAvailability}>
       <label>{t("timetable.teacher")}<select required value={availabilityStaffId} onChange={(event) => setAvailabilityStaffId(event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>
-      <label>{t("timetable.weekday")}<select value={availabilityWeekday} onChange={(event) => setAvailabilityWeekday(event.target.value)}>{days.slice(1).map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label>
-      <label>{t("timetable.blockedTime")}<select value={availabilityLesson} onChange={(event) => setAvailabilityLesson(event.target.value)}><option value="0">{t("timetable.allDayOff")}</option>{[1,2,3,4,5,6].map((n) => <option key={n} value={n}>{n}{t("timetable.periodSuffix")}</option>)}</select></label>
+      <label>{t("timetable.weekday")}<select value={availabilityWeekday} onChange={(event) => setAvailabilityWeekday(event.target.value)}>{days.slice(1, timetableSettings.schoolDays + 1).map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label>
+      <label>{t("timetable.blockedTime")}<select value={availabilityLesson} onChange={(event) => setAvailabilityLesson(event.target.value)}><option value="0">{t("timetable.allDayOff")}</option>{Array.from({ length: timetableSettings.maxLessonsPerDay }, (_, index) => index + 1).map((n) => <option key={n} value={n}>{n}{t("timetable.periodSuffix")}</option>)}</select></label>
       <button disabled={availabilityBusy || !availabilityStaffId}>{availabilityBusy ? t("timetable.saving") : t("timetable.saveRestriction")}</button>
     </form><div className={styles.table}><table><thead><tr><th>{t("timetable.teacher").toLocaleUpperCase()}</th><th>{t("timetable.weekday").toLocaleUpperCase()}</th><th>{t("timetable.blockedTime").toLocaleUpperCase()}</th><th>{t("timetable.remove").toLocaleUpperCase()}</th></tr></thead><tbody>{availabilitySlots.map((slot) => <tr key={slot.id}><td>{slot.teacherName}</td><td>{days[slot.weekday]}</td><td>{slot.lessonNumber === 0 ? t("timetable.allDayOff") : slot.lessonNumber + t("timetable.periodSuffix")}</td><td><button type="button" disabled={availabilityBusy} onClick={() => void removeAvailability(slot)}>{t("timetable.remove")}</button></td></tr>)}</tbody></table>{!availabilitySlots.length && <p>{t("timetable.noAvailability")}</p>}</div></section>
     <section className={styles.panel}><h2>{t("timetable.addLesson")}</h2><form onSubmit={save}>
@@ -203,11 +238,11 @@ export default function TimetablePage() {
       <label>{t("timetable.teacher")}<select required value={f.staffId} onChange={(event) => set("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select>{selectedTeacher && teacherRemainingHours !== null && <small className={styles.note}>{t("timetable.approvedLoadInfo").replace("{approved}", String(Number(selectedTeacher.workloadHours))).replace("{scheduled}", String(teacherScheduledHours)).replace("{remaining}", String(teacherRemainingHours))}</small>}</label>
       <label>{t("timetable.subject")}<input required value={f.subject} onChange={(event) => set("subject", event.target.value)} placeholder={t("timetable.subjectExample")} /></label>
       <label>{t("timetable.weekday")}<select value={f.weekday} onChange={(event) => set("weekday", event.target.value)}>{days.slice(1).map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label>
-      <label>{t("timetable.lessons")}<select value={f.lessonNumber} onChange={(event) => set("lessonNumber", event.target.value)}>{Array.from({ length: 6 }, (_, index) => index + 1).map((number) => <option key={number} value={number}>{number}-ум</option>)}</select></label>
+      <label>{t("timetable.lessons")}<select value={f.lessonNumber} onChange={(event) => set("lessonNumber", event.target.value)}>{Array.from({ length: timetableSettings.maxLessonsPerDay }, (_, index) => index + 1).map((number) => <option key={number} value={number}>{number}-ум</option>)}</select></label>
       <label>{t("timetable.roomShort")}<input value={f.room} onChange={(event) => set("room", event.target.value)} /></label>
       <button disabled={busy || !school || !f.classId || !f.staffId || teacherRemainingHours === 0}>{busy ? t("timetable.saving") : t("timetable.addLesson")}</button>
     </form></section>
-    <section className={`${styles.panel} ${styles.weekGridPrint}`}><h2>{t("timetable.weekGrid")}</h2><p className={styles.note}>{t("timetable.printHint")}</p><label className={styles.gridClassPicker}>{t("timetable.selectClass")}<select value={gridClassId} onChange={(event) => setGridClassId(event.target.value)}><option value="">{t("timetable.noClassSelected")}</option>{classes.slice().sort((a,b) => a.grade-b.grade || a.section.localeCompare(b.section)).map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>{gridClassId && <><h3 className={styles.gridHeading}>{t("timetable.classGridHeading").replace("{className}", `${selectedGridClass?.grade}${selectedGridClass?.section}`).replace("{year}", year)}</h3><div className={styles.weekGridWrap}><table className={styles.weekGrid}><thead><tr><th>{t("timetable.weekdays")}</th>{[1,2,3,4,5,6].map((n) => <th key={n}>{n}{t("timetable.period")}</th>)}</tr></thead><tbody>{days.slice(1).map((day, index) => <tr key={day}><th>{day}</th>{[1,2,3,4,5,6].map((lesson) => { const item = gridCell(index + 1, lesson); return <td key={lesson}>{item ? <div className={styles.lessonCard}><strong>{item.subject}</strong><span>{item.teacherName}</span>{item.room && <small>{t("timetable.roomShort")} {item.room}</small>}</div> : <span className={styles.emptySlot}>—</span>}</td>; })}</tr>)}</tbody></table></div><p className={styles.gridCount}>{t("timetable.lessonCount").replace("{count}", String(classGridRows.length)).replace("{shift}", t(Number(selectedGridClass?.grade) >= 8 ? "timetable.shiftOne" : "timetable.shiftTwo"))}</p></>}</section>
+    <section className={`${styles.panel} ${styles.weekGridPrint}`}><h2>{t("timetable.weekGrid")}</h2><p className={styles.note}>{t("timetable.printHint")}</p><label className={styles.gridClassPicker}>{t("timetable.selectClass")}<select value={gridClassId} onChange={(event) => setGridClassId(event.target.value)}><option value="">{t("timetable.noClassSelected")}</option>{classes.slice().sort((a,b) => a.grade-b.grade || a.section.localeCompare(b.section)).map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>{gridClassId && <><h3 className={styles.gridHeading}>{t("timetable.classGridHeading").replace("{className}", `${selectedGridClass?.grade}${selectedGridClass?.section}`).replace("{year}", year)}</h3><div className={styles.weekGridWrap}><table className={styles.weekGrid}><thead><tr><th>{t("timetable.weekdays")}</th>{Array.from({ length: timetableSettings.maxLessonsPerDay }, (_, index) => index + 1).map((n) => <th key={n}>{n}{t("timetable.period")}</th>)}</tr></thead><tbody>{days.slice(1, timetableSettings.schoolDays + 1).map((day, index) => <tr key={day}><th>{day}</th>{Array.from({ length: timetableSettings.maxLessonsPerDay }, (_, lessonIndex) => lessonIndex + 1).map((lesson) => { const item = gridCell(index + 1, lesson); return <td key={lesson}>{item ? <div className={styles.lessonCard}><strong>{item.subject}</strong><span>{item.teacherName}</span>{item.room && <small>{t("timetable.roomShort")} {item.room}</small>}</div> : <span className={styles.emptySlot}>—</span>}</td>; })}</tr>)}</tbody></table></div><p className={styles.gridCount}>{t("timetable.lessonCount").replace("{count}", String(classGridRows.length)).replace("{shift}", t(Number(selectedGridClass?.grade) > timetableSettings.shiftSplitGrade ? "timetable.shiftOne" : "timetable.shiftTwo"))}</p></>}</section>
     <section className={styles.panel}><h2>{t("timetable.lessonList").replace("{count}", String(rows.length))}</h2><div className={styles.table}><table><thead><tr><th>{t("timetable.shiftOne").toLocaleUpperCase()}</th><th>{t("timetable.weekdays").toLocaleUpperCase()}</th><th>{t("timetable.lessons").toLocaleUpperCase()}</th><th>{t("timetable.class").toLocaleUpperCase()}</th><th>{t("timetable.subject").toLocaleUpperCase()}</th><th>{t("timetable.teacher").toLocaleUpperCase()}</th><th>{t("timetable.roomShort").toLocaleUpperCase()}</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{row.shiftNumber === 2 ? "2" : "1"}</td><td>{days[row.weekday]}</td><td>{row.lessonNumber}</td><td>{row.grade}{row.section}</td><td>{row.subject}</td><td>{row.teacherName}</td><td>{row.room || "—"}</td></tr>)}</tbody></table>{!rows.length && <p>{t("timetable.empty")}</p>}</div></section>
     <footer>© 2026 TJS Edu · {t("timetable.conflictFooter")}</footer>
   </div><PlanQuotaNotice status={quotaNotice} onClose={() => setQuotaNotice(null)} /></main>;

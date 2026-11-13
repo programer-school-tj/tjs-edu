@@ -86,7 +86,7 @@ export async function handle(request: Request) {
         const weeklyHours = Number(load.weeklyHours);
         const already = existing.filter((entry) => entry.classId === load.classId && entry.staffId === load.staffId && entry.subject.trim().toLocaleLowerCase() === load.subject.trim().toLocaleLowerCase()).length;
         for (let i = already; i < weeklyHours; i++) {
-          tasks.push({ loadId: load.id, classId: load.classId, staffId: load.staffId, subject: load.subject, shiftNumber: Number(load.grade) <= 7 ? 2 : 1, grade: Number(load.grade), weeklyHours });
+          tasks.push({ loadId: load.id, classId: load.classId, staffId: load.staffId, subject: load.subject, shiftNumber: Number(load.grade) <= shiftSplitGrade ? 2 : 1, grade: Number(load.grade), weeklyHours });
         }
       }
       if (!tasks.length) return { created: 0, unplaced: [] as string[] };

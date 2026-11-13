@@ -48,7 +48,6 @@ export default function PayrollPage() {
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const selectedStaff = staff.find((item) => item.id === f.staffId);
   const [monthYear, monthNumber] = month.split("-").map(Number);
-  const payrollDate = new Date(Date.UTC(monthYear || 2026, (monthNumber || 1) - 1, 1));
   const academicYear = monthNumber >= 9
     ? `${monthYear}-${monthYear + 1}`
     : `${monthYear - 1}-${monthYear}`;

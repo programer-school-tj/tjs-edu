@@ -17,5 +17,17 @@ export const generateTimetable=(x:{institutionId:string;academicYear:string})=>c
 
 export const importTimetableRows=(x:{institutionId:string;academicYear:string;rows:Array<{grade:number;section:string;weekday:number;lessonNumber:number;subject:string;teacherName:string;room?:string}>})=>call<{imported:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/import",x);
 
+export type TimetableSettings = {
+  schoolDays: number;
+  maxLessonsPerDay: number;
+  teacherDailyLimit: number;
+  classDailyLimit: number;
+  shiftSplitGrade: number;
+  teacherDailyLimits: Record<string, number>;
+  classDailyLimits: Record<string, number>;
+};
+export const getTimetableSettings=async(institutionId:string,academicYear:string)=>(await call<{settings:TimetableSettings}>(`/_api/timetable-settings/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).settings;
+export const saveTimetableSettings=(x:{institutionId:string;academicYear:string}&TimetableSettings)=>call<{saved:boolean}>("/_api/timetable-settings/save",x);
+
 export const getStaffAvailability=async(institutionId:string,academicYear:string)=>(await call<{slots:any[]}>(`/_api/staff-availability/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).slots||[];
 export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);

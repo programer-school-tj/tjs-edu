@@ -59,7 +59,7 @@ export async function handle(request: Request) {
         const monthYear = Number(x.payrollMonth.slice(0, 4));
         const monthNumber = Number(x.payrollMonth.slice(5, 7));
         const monthStart = new Date(Date.UTC(monthYear, monthNumber - 1, 1));
-        const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0, 23, 59, 59, 999));
+        const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0));
         const payrollAcademicYear = monthNumber >= 9
           ? `${monthYear}-${monthYear + 1}`
           : `${monthYear - 1}-${monthYear}`;

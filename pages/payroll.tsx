@@ -35,6 +35,7 @@ export default function PayrollPage() {
   }, []);
   useEffect(() => {
     if (!school) return;
+    setF({ staffId: "", tariffId: "", baseAmount: "", allowances: "0", deductions: "0", notes: "" });
     void Promise.all([getStaff(school), getTariffs(school)]).then(([staffRows, tariffRows]) => {
       const activeStaff = staffRows.filter((item: any) => item.isActive);
       setStaff(activeStaff);

@@ -145,8 +145,8 @@ export default function TimetablePage() {
         return -1;
       };
       const classCol = column("синф", "class");
-      const dayCol = column("рӯз (1-6)", "рӯз", "weekday", "day");
-      const lessonCol = column("соати дарс (1-6)", "соати дарс", "lesson", "lesson number");
+      const dayCol = column("рӯз (1-6)", `рӯз (1-${timetableSettings.schoolDays})`, "рӯз", "weekday", "day");
+      const lessonCol = column("соати дарс (1-6)", `соати дарс (1-${timetableSettings.maxLessonsPerDay})`, "соати дарс", "lesson", "lesson number");
       const subjectCol = column("фан", "subject");
       const teacherCol = column("омӯзгор (ному насаб)", "омӯзгор", "teacher", "teacher name");
       const roomCol = column("кабинет", "room");
@@ -214,7 +214,7 @@ export default function TimetablePage() {
           <label>Синфи охирини басти 2<select value={timetableSettings.shiftSplitGrade} onChange={(event) => setTimetableSettings((v: any) => ({ ...v, shiftSplitGrade: Number(event.target.value) }))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}-ум</option>)}</select></label>
         </div>
         <div className={styles.table}><h3>Меъёри инфиродии омӯзгорон</h3><table><thead><tr><th>Омӯзгор</th><th>Ҳадди дарс дар як рӯз</th></tr></thead><tbody>{staff.map((teacher) => <tr key={teacher.id}><td>{teacher.fullName}</td><td><select value={timetableSettings.teacherDailyLimits?.[teacher.id] ?? "default"} onChange={(event) => updateDailyLimit("teacherDailyLimits", teacher.id, event.target.value)}><option value="default">Аз меъёри умумӣ ({timetableSettings.teacherDailyLimit})</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></td></tr>)}</tbody></table></div>
-        <div className={styles.table}><h3>Меъёри инфиродии синфҳо</h3><table><thead><tr><th>Синф</th><th>Ҳадди дарс дар як рӯз</th></tr></thead><tbody>{classes.slice().sort((a,b) => a.grade-b.grade || a.section.localeCompare(b.section)).map((cls) => <tr key={cls.id}><td>{cls.grade}{cls.section}</td><td><select value={timetableSettings.classDailyLimits?.[cls.id] ?? "default"} onChange={(event) => updateDailyLimit("classDailyLimits", cls.id, event.target.value)}><option value="default">Аз меъёри умумӣ ({timetableSettings.classDailyLimit})</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></td></tr>)}</tbody></table></div>
+        <div className={styles.table}><h3>Меъёри инфиродии синфҳо</h3><table><thead><tr><th>Синф</th><th>Ҳадди дарс дар як рӯз</th></tr></thead><tbody>{classes.filter((cls) => cls.academicYear === year).slice().sort((a,b) => a.grade-b.grade || a.section.localeCompare(b.section)).map((cls) => <tr key={cls.id}><td>{cls.grade}{cls.section}</td><td><select value={timetableSettings.classDailyLimits?.[cls.id] ?? "default"} onChange={(event) => updateDailyLimit("classDailyLimits", cls.id, event.target.value)}><option value="default">Аз меъёри умумӣ ({timetableSettings.classDailyLimit})</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} соат</option>)}</select></td></tr>)}</tbody></table></div>
         <button disabled={settingsBusy || !school}>{settingsBusy ? "Сабт шуда истодааст..." : "Сабти танзимоти ҷадвал"}</button>
       </form>
     </section>

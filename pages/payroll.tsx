@@ -56,7 +56,7 @@ export default function PayrollPage() {
   const matchingTariffs = tariffs.filter((item) => {
     if (item.academicYear !== academicYear) return false;
     const monthStart = new Date(Date.UTC(monthYear, monthNumber - 1, 1));
-    const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0, 23, 59, 59, 999));
+    const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0));
     const from = new Date(item.effectiveFrom);
     const to = item.effectiveTo ? new Date(item.effectiveTo) : null;
     if (Number.isNaN(from.getTime()) || from > monthStart || (to && to < monthEnd)) return false;

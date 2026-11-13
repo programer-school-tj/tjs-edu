@@ -132,6 +132,9 @@ export interface InstitutionPayrollEntries {
   staffId: string;
   tariffId: string | null;
   tradeUnionDuesDeduction: Generated<Numeric>;
+  workRate: Generated<Numeric>;
+  weeklyHours: Generated<Numeric>;
+  workingDays: Generated<number>;
   updatedAt: Generated<Timestamp>;
 }
 

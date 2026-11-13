@@ -96,7 +96,7 @@ export default function PayrollPage() {
       <label>{t("finance.baseAmount")}<input required type="number" min="0" step="0.01" value={f.baseAmount} readOnly={!!f.tariffId} onChange={(event) => set("baseAmount", event.target.value)} />{f.tariffId && <small className={styles.note}>{t("finance.tariffAutoAmount")}</small>}</label>
       <label>{t("finance.workRate")}<input type="number" min="0.01" max="5" step="0.25" value={f.workRate} onChange={(event) => set("workRate", event.target.value)} /></label>
       <label>{t("finance.weeklyHours")}<input type="number" min="0" max="60" step="0.5" value={f.weeklyHours} readOnly={!!f.tariffId} onChange={(event) => set("weeklyHours", event.target.value)} /></label>
-      <label>{t("finance.workingDays")}<input type="number" min="0" max="31" step="1" value={f.workingDays} onChange={(event) => set("workingDays", event.target.value)} /></label>
+      <label>{t("finance.workingDays")}<input type="number" min="0" max={new Date(monthYear, monthNumber, 0).getDate()} step="1" value={f.workingDays} onChange={(event) => set("workingDays", event.target.value)} /></label>
       <h3>{t("finance.allowances")}</h3>
       <label>{t("finance.classHeadAllowance")} (сомонӣ)<input type="number" min="0" step="0.01" value={f.classHeadAllowance} onChange={(event) => set("classHeadAllowance", event.target.value)} /></label>
       <label>{t("finance.notebookCheckingAllowance")} (сомонӣ)<input type="number" min="0" step="0.01" value={f.notebookCheckingAllowance} onChange={(event) => set("notebookCheckingAllowance", event.target.value)} /></label>

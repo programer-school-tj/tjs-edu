@@ -13,6 +13,15 @@ ALTER TABLE institution_payroll_entries
   ADD COLUMN IF NOT EXISTS newspaper_deduction NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (newspaper_deduction >= 0),
   ADD COLUMN IF NOT EXISTS other_deductions NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (other_deductions >= 0);
 
+-- Preserve legacy aggregate amounts in the corresponding "other" component.
+UPDATE institution_payroll_entries
+SET other_allowances = allowances
+WHERE other_allowances = 0 AND allowances <> 0;
+
+UPDATE institution_payroll_entries
+SET other_deductions = deductions
+WHERE other_deductions = 0 AND deductions <> 0;
+
 COMMENT ON COLUMN institution_payroll_entries.class_head_allowance IS 'Allowance for class leadership duties.';
 COMMENT ON COLUMN institution_payroll_entries.notebook_checking_allowance IS 'Allowance for checking student notebooks.';
 COMMENT ON COLUMN institution_payroll_entries.methodical_association_head_allowance IS 'Allowance for leading a subject/methodical association.';

@@ -57,6 +57,27 @@ export async function handle(request: Request) {
         }
       }
 
+      const existingTariffs = await trx.selectFrom("institutionTariffs")
+        .select(["id", "staffId", "positionTitle", "educationLevel", "qualificationCategory", "effectiveFrom", "effectiveTo"])
+        .where("institutionId", "=", x.institutionId)
+        .where("academicYear", "=", x.academicYear)
+        .execute();
+
+      const normalize = (value: string | null | undefined) => (value || "").trim().toLocaleLowerCase();
+      const newStart = new Date(`${x.effectiveFrom}T00:00:00.000Z`).getTime();
+      const newEnd = x.effectiveTo ? new Date(`${x.effectiveTo}T23:59:59.999Z`).getTime() : Number.POSITIVE_INFINITY;
+      const overlapping = existingTariffs.some((item) => {
+        const sameScope = item.staffId === (x.staffId || null)
+          && normalize(item.positionTitle) === normalize(x.positionTitle)
+          && normalize(item.educationLevel) === normalize(x.educationLevel)
+          && normalize(item.qualificationCategory) === normalize(x.qualificationCategory);
+        if (!sameScope) return false;
+        const oldStart = new Date(item.effectiveFrom).getTime();
+        const oldEnd = item.effectiveTo ? new Date(item.effectiveTo).getTime() : Number.POSITIVE_INFINITY;
+        return newStart <= oldEnd && oldStart <= newEnd;
+      });
+      if (overlapping) throw new Error("TARIFF_PERIOD_OVERLAP");
+
       const monthlyBase = Math.round(x.monthlyBase * 100) / 100;
       return trx.insertInto("institutionTariffs").values({
         institutionId: x.institutionId,
@@ -89,13 +110,15 @@ export async function handle(request: Request) {
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди 5 амалиёти ройгони тарификатсия истифода шуд. Барои идома ба нақшаи PRO гузаред."
       : code === "STAFF_NOT_FOUND" ? "Корманди интихобшуда дар ин муассиса нест."
       : code === "STAFF_POSITION_MISMATCH" ? "Вазифаи тариф ба вазифаи корманди интихобшуда мувофиқат намекунад."
+      : code === "TARIFF_PERIOD_OVERLAP" ? "Барои ҳамин корманд ва гурӯҳи тарифӣ дар ин муҳлат тарифи дигар мавҷуд аст. Сана ё тарифро санҷед."
       : "Ҳангоми сабти тариф хатои дохилӣ рух дод. Лутфан баъдтар такрор кунед.";
     const status = isAuthError ? 401
       : code === "PLAN_LIMIT_REACHED" ? 402
       : code === "STAFF_NOT_FOUND" ? 404
+      : code === "TARIFF_PERIOD_OVERLAP" ? 409
       : isValidationError ? 400
       : 500;
-    const publicCode = ["PLAN_LIMIT_REACHED", "STAFF_NOT_FOUND", "STAFF_POSITION_MISMATCH"].includes(code) ? code : undefined;
+    const publicCode = ["PLAN_LIMIT_REACHED", "STAFF_NOT_FOUND", "STAFF_POSITION_MISMATCH", "TARIFF_PERIOD_OVERLAP"].includes(code) ? code : undefined;
 
     return new Response(superjson.stringify({ message, code: publicCode }), {
       status,

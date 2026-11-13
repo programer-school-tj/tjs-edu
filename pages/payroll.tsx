@@ -55,9 +55,11 @@ export default function PayrollPage() {
   const templateCells = useMemo(() => buildPayrollTemplateCells(staff, tariffs, rows, academicYear, month), [staff, tariffs, rows, academicYear, month]);
   const matchingTariffs = tariffs.filter((item) => {
     if (item.academicYear !== academicYear) return false;
+    const monthStart = new Date(Date.UTC(monthYear, monthNumber - 1, 1));
+    const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0, 23, 59, 59, 999));
     const from = new Date(item.effectiveFrom);
     const to = item.effectiveTo ? new Date(item.effectiveTo) : null;
-    if (Number.isNaN(from.getTime()) || from > payrollDate || (to && to < payrollDate)) return false;
+    if (Number.isNaN(from.getTime()) || from > monthStart || (to && to < monthEnd)) return false;
     if (!selectedStaff) return true;
     return item.staffId
       ? item.staffId === selectedStaff.id

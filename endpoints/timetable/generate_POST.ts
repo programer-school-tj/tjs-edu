@@ -108,12 +108,25 @@ export async function handle(request: Request) {
       const slotList: Slot[] = [];
       for (let weekday = 1; weekday <= schoolDays; weekday++) for (let lessonNumber = 1; lessonNumber <= maxLessonsPerDay; lessonNumber++) slotList.push({ weekday, lessonNumber, shiftNumber: 1 }, { weekday, lessonNumber, shiftNumber: 2 });
 
-      for (let attempt = 0; attempt < 80 && !best; attempt++) {
+      // Prioritize tasks with fewer valid slots so flexible loads do not consume scarce times.
+      const scarcity = new Map<Task, number>();
+      for (const task of tasks) {
+        const count = slotList.filter((slot) => slot.shiftNumber === task.shiftNumber &&
+          !classSlots.has(`${task.classId}:${slot.weekday}:${slot.lessonNumber}`) &&
+          !teacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+          !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
+          !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+          (classDayCounts.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
+          (teacherDayCounts.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))).length;
+        scarcity.set(task, count);
+      }
+
+      for (let attempt = 0; attempt < 120 && !best; attempt++) {
         const occupiedClass = new Set(classSlots);
         const occupiedTeacher = new Set(teacherSlots);
         const dayClasses = new Map(classDayCounts);
         const dayTeachers = new Map(teacherDayCounts);
-        const remaining = shuffle(tasks);
+        const remaining = [...tasks].sort((a, b) => (scarcity.get(a)! - scarcity.get(b)!) || (b.weeklyHours - a.weeklyHours) || (Math.random() - 0.5));
         const placed: Array<Slot | null> = new Array(remaining.length).fill(null);
         let success = true;
 

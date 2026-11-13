@@ -49,6 +49,10 @@ export async function handle(request: Request) {
       const staff = await trx.selectFrom("institutionStaff").select(["id", "positionTitle"])
         .where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst();
       if (!staff) throw new Error("STAFF_NOT_FOUND");
+      const payrollYear = Number(x.payrollMonth.slice(0, 4));
+      const payrollMonthNumber = Number(x.payrollMonth.slice(5, 7));
+      const daysInPayrollMonth = new Date(Date.UTC(payrollYear, payrollMonthNumber, 0)).getUTCDate();
+      if (x.workingDays > daysInPayrollMonth) throw new Error("WORKING_DAYS_EXCEED_MONTH");
 
       // Ҳисобҳои пулӣ бо дирам (integer cents) иҷро мешаванд, то хатои float ҷамъ нашавад.
       let baseAmountCents = Math.round(x.baseAmount * 100);
@@ -122,6 +126,7 @@ export async function handle(request: Request) {
       "TARIFF_NOT_EFFECTIVE",
       "TARIFF_YEAR_MISMATCH",
       "DEDUCTIONS_EXCEED_GROSS",
+      "WORKING_DAYS_EXCEED_MONTH",
     ]);
     const message = error instanceof z.ZodError ? "Маълумоти табели маош нодуруст аст."
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди 5 амалиёти ройгони табели маош истифода шуд. Барои идома ба нақшаи PRO гузаред."
@@ -132,6 +137,7 @@ export async function handle(request: Request) {
       : code === "TARIFF_YEAR_MISMATCH" ? "Соли таҳсилии тарифи интихобшуда ба моҳи ҳисоботӣ мувофиқат намекунад."
       : code === "TARIFF_NOT_EFFECTIVE" ? "Тарифи интихобшуда дар моҳи ҳисоботӣ амал намекунад."
       : code === "DEDUCTIONS_EXCEED_GROSS" ? "Нигоҳдоштиҳо аз маблағи ҳисобшуда зиёд буда наметавонанд."
+      : code === "WORKING_DAYS_EXCEED_MONTH" ? "Шумораи рӯзҳои корӣ аз шумораи рӯзҳои моҳи интихобшуда зиёд буда наметавонад."
       : isDuplicatePayroll ? "Барои ин корманд дар моҳи интихобшуда табели маош аллакай сабт шудааст."
       : "Ҳангоми сабти табели маош хатои дохилӣ рух дод. Лутфан баъдтар такрор кунед.";
     const isAuthError = (error as { name?: string })?.name === "NotAuthenticatedError";
@@ -141,6 +147,7 @@ export async function handle(request: Request) {
       "TARIFF_NOT_EFFECTIVE",
       "TARIFF_YEAR_MISMATCH",
       "DEDUCTIONS_EXCEED_GROSS",
+      "WORKING_DAYS_EXCEED_MONTH",
     ].includes(code);
     const status = isAuthError ? 401
       : code === "PLAN_LIMIT_REACHED" ? 402

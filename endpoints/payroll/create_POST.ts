@@ -14,6 +14,15 @@ const schema = z.object({
   baseAmount: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Маблағи асосӣ бояд то 2 рақами пас аз вергул бошад."),
   allowances: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Иловапулӣ бояд то 2 рақами пас аз вергул бошад.").default(0),
   deductions: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Нигоҳдошт бояд то 2 рақами пас аз вергул бошад.").default(0),
+  classHeadAllowance: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  notebookCheckingAllowance: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  methodicalAssociationHeadAllowance: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  otherAllowances: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  incomeTaxDeduction: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  partyDuesDeduction: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  tradeUnionDuesDeduction: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  newspaperDeduction: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
+  otherDeductions: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
   notes: z.string().max(1000).optional(),
 });
 
@@ -58,8 +67,17 @@ export async function handle(request: Request) {
         baseAmountCents = Math.round(Number(tariff.monthlyBase) * 100);
       }
 
-      const allowancesCents = Math.round(x.allowances * 100);
-      const deductionsCents = Math.round(x.deductions * 100);
+      const classHeadAllowanceCents = Math.round(x.classHeadAllowance * 100);
+      const notebookCheckingAllowanceCents = Math.round(x.notebookCheckingAllowance * 100);
+      const methodicalAssociationHeadAllowanceCents = Math.round(x.methodicalAssociationHeadAllowance * 100);
+      const otherAllowancesCents = Math.round((x.otherAllowances + x.allowances) * 100);
+      const incomeTaxDeductionCents = Math.round(x.incomeTaxDeduction * 100);
+      const partyDuesDeductionCents = Math.round(x.partyDuesDeduction * 100);
+      const tradeUnionDuesDeductionCents = Math.round(x.tradeUnionDuesDeduction * 100);
+      const newspaperDeductionCents = Math.round(x.newspaperDeduction * 100);
+      const otherDeductionsCents = Math.round((x.otherDeductions + x.deductions) * 100);
+      const allowancesCents = classHeadAllowanceCents + notebookCheckingAllowanceCents + methodicalAssociationHeadAllowanceCents + otherAllowancesCents;
+      const deductionsCents = incomeTaxDeductionCents + partyDuesDeductionCents + tradeUnionDuesDeductionCents + newspaperDeductionCents + otherDeductionsCents;
       const grossAmountCents = baseAmountCents + allowancesCents;
       if (deductionsCents > grossAmountCents) throw new Error("DEDUCTIONS_EXCEED_GROSS");
       const baseAmount = baseAmountCents / 100;
@@ -70,6 +88,15 @@ export async function handle(request: Request) {
       return trx.insertInto("institutionPayrollEntries").values({
         institutionId: x.institutionId, staffId: x.staffId, payrollMonth: new Date(`${x.payrollMonth}-01T00:00:00.000Z`),
         tariffId: x.tariffId || null, baseAmount, allowances, grossAmount,
+        classHeadAllowance: classHeadAllowanceCents / 100,
+        notebookCheckingAllowance: notebookCheckingAllowanceCents / 100,
+        methodicalAssociationHeadAllowance: methodicalAssociationHeadAllowanceCents / 100,
+        otherAllowances: otherAllowancesCents / 100,
+        incomeTaxDeduction: incomeTaxDeductionCents / 100,
+        partyDuesDeduction: partyDuesDeductionCents / 100,
+        tradeUnionDuesDeduction: tradeUnionDuesDeductionCents / 100,
+        newspaperDeduction: newspaperDeductionCents / 100,
+        otherDeductions: otherDeductionsCents / 100,
         deductions, netAmount, notes: x.notes || null, createdBy: user.id,
       }).returningAll().executeTakeFirstOrThrow();
     });

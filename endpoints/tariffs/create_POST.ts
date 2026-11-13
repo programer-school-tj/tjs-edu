@@ -12,8 +12,8 @@ const schema = z.object({
   positionTitle: z.string().trim().min(2).max(120),
   educationLevel: z.string().max(100).optional(),
   qualificationCategory: z.string().max(100).optional(),
-  weeklyHours: z.number().min(0).max(60).optional(),
-  monthlyBase: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Музди моҳона бояд то 2 рақами пас аз вергул бошад."),
+  weeklyHours: z.number().positive("Соатҳои ҳафтаина бояд аз сифр зиёд бошанд.").max(60).optional(),
+  monthlyBase: z.number().positive("Маблағи музди асосӣ бояд аз сифр зиёд бошад.").max(1000000).refine(hasAtMostTwoDecimals, "Музди моҳона бояд то 2 рақами пас аз вергул бошад."),
   effectiveFrom: z.string().date(),
   effectiveTo: z.string().date().optional(),
   academicYear: z.string().regex(/^20[0-9]{2}-20[0-9]{2}$/),
@@ -85,7 +85,7 @@ export async function handle(request: Request) {
     const code = error instanceof Error ? error.message : "";
     const isAuthError = (error as { name?: string })?.name === "NotAuthenticatedError";
     const isValidationError = error instanceof z.ZodError || code === "STAFF_POSITION_MISMATCH";
-    const message = error instanceof z.ZodError ? "Маълумоти тариф нодуруст аст."
+    const message = error instanceof z.ZodError ? (error.issues[0]?.message || "Маълумоти тариф нодуруст аст.")
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди 5 амалиёти ройгони тарификатсия истифода шуд. Барои идома ба нақшаи PRO гузаред."
       : code === "STAFF_NOT_FOUND" ? "Корманди интихобшуда дар ин муассиса нест."
       : code === "STAFF_POSITION_MISMATCH" ? "Вазифаи тариф ба вазифаи корманди интихобшуда мувофиқат намекунад."

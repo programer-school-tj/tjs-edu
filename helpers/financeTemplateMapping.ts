@@ -31,14 +31,14 @@ function asDate(value: string | Date | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function findTariff(staff: FinanceTemplateStaff, tariffs: FinanceTemplateTariff[], academicYear: string, asOf: Date) {
+function findTariff(staff: FinanceTemplateStaff, tariffs: FinanceTemplateTariff[], academicYear: string, asOf: Date, asOfEnd = asOf) {
   const matching = tariffs.filter((tariff) => {
     if (tariff.academicYear !== academicYear) return false;
     if (normalized(tariff.positionTitle) !== normalized(staff.positionTitle)) return false;
     if (tariff.staffId && tariff.staffId !== staff.id) return false;
     const from = asDate(tariff.effectiveFrom);
     const to = asDate(tariff.effectiveTo);
-    return Boolean(from && from <= asOf && (!to || to >= asOf));
+    return Boolean(from && from <= asOf && (!to || to >= asOfEnd));
   });
   const personal = matching.filter((tariff) => tariff.staffId === staff.id);
   const candidates = personal.length ? personal : matching.filter((tariff) => !tariff.staffId);
@@ -78,13 +78,15 @@ export function buildPayrollTemplateCells(
   academicYear: string,
   payrollMonth: string,
 ) {
-  const monthDate = /^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(payrollMonth)
-    ? new Date(`${payrollMonth}-01T00:00:00.000Z`)
-    : new Date();
+  const validMonth = /^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(payrollMonth);
+  const monthDate = validMonth ? new Date(`${payrollMonth}-01T00:00:00.000Z`) : new Date();
+  const monthEnd = validMonth
+    ? new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth() + 1, 0))
+    : monthDate;
   const cells: Record<string, string> = {};
   staff.slice(0, 69).forEach((person, index) => {
     const row = 5 + index * 2;
-    const tariff = findTariff(person, tariffs, academicYear, monthDate);
+    const tariff = findTariff(person, tariffs, academicYear, monthDate, monthEnd);
     const payroll = payrollEntries.find((entry) => entry.staffId === person.id);
     addCell(cells, "B", row, person.fullName);
     addCell(cells, "C", row, person.positionTitle);

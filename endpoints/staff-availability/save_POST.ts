@@ -9,8 +9,8 @@ const schema = z.object({
   academicYear: z.string().regex(/^20[0-9]{2}-20[0-9]{2}$/),
   slots: z.array(z.object({
     weekday: z.number().int().min(1).max(6),
-    lessonNumber: z.number().int().min(0).max(6),
-  })).max(42).refine((items) => new Set(items.map((item) => item.weekday + ":" + item.lessonNumber)).size === items.length, "Қоидаи такрорӣ вуҷуд дорад.")
+    lessonNumber: z.number().int().min(0).max(12),
+  })).max(72).refine((items) => new Set(items.map((item) => item.weekday + ":" + item.lessonNumber)).size === items.length, "Қоидаи такрорӣ вуҷуд дорад.")
     .refine((items) => items.every((item) => item.lessonNumber === 0 || !items.some((other) => other.weekday === item.weekday && other.lessonNumber === 0)), "Рӯзи истироҳатро бо соати банд якҷоя интихоб кардан мумкин нест.")
 });
 
@@ -27,6 +27,14 @@ export async function handle(request: Request) {
       .where("institutionMemberships.role", "=", "director")
       .where("institutions.status", "=", "approved").executeTakeFirst();
     if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассиса метавонад дастрасии омӯзгорро тағйир диҳад." }), { status: 403 });
+
+    const settings = await db.selectFrom("institutionTimetableSettings").select(["schoolDays", "maxLessonsPerDay"])
+      .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst();
+    const schoolDays = Number(settings?.schoolDays ?? 6);
+    const maxLessons = Number(settings?.maxLessonsPerDay ?? 6);
+    if (x.slots.some((slot) => slot.weekday > schoolDays || slot.lessonNumber > maxLessons)) {
+      return new Response(superjson.stringify({ message: "Рӯз ё соати интихобшуда аз танзимоти ҷадвал берун аст." }), { status: 400 });
+    }
 
     await db.transaction().execute(async (trx) => {
       const staff = await trx.selectFrom("institutionStaff").select("id")

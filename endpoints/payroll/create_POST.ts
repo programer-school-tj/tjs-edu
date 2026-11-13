@@ -48,6 +48,12 @@ export async function handle(request: Request) {
         if (tariff.staffId && tariff.staffId !== staff.id) throw new Error("TARIFF_STAFF_MISMATCH");
         if (tariff.positionTitle.trim().toLocaleLowerCase() !== staff.positionTitle.trim().toLocaleLowerCase()) throw new Error("TARIFF_POSITION_MISMATCH");
         const monthDate = new Date(`${x.payrollMonth}-01T00:00:00.000Z`);
+        const monthYear = Number(x.payrollMonth.slice(0, 4));
+        const monthNumber = Number(x.payrollMonth.slice(5, 7));
+        const payrollAcademicYear = monthNumber >= 9
+          ? `${monthYear}-${monthYear + 1}`
+          : `${monthYear - 1}-${monthYear}`;
+        if (tariff.academicYear !== payrollAcademicYear) throw new Error("TARIFF_YEAR_MISMATCH");
         if (tariff.effectiveFrom > monthDate || (tariff.effectiveTo && tariff.effectiveTo < monthDate)) throw new Error("TARIFF_NOT_EFFECTIVE");
         baseAmountCents = Math.round(Number(tariff.monthlyBase) * 100);
       }
@@ -79,6 +85,7 @@ export async function handle(request: Request) {
       "TARIFF_STAFF_MISMATCH",
       "TARIFF_POSITION_MISMATCH",
       "TARIFF_NOT_EFFECTIVE",
+      "TARIFF_YEAR_MISMATCH",
       "DEDUCTIONS_EXCEED_GROSS",
     ]);
     const message = error instanceof z.ZodError ? "Маълумоти табели маош нодуруст аст."
@@ -87,6 +94,7 @@ export async function handle(request: Request) {
       : code === "TARIFF_NOT_FOUND" ? "Тариф ба ин муассиса тааллуқ надорад."
       : code === "TARIFF_STAFF_MISMATCH" ? "Ин тариф ба корманди интихобшуда тааллуқ надорад."
       : code === "TARIFF_POSITION_MISMATCH" ? "Вазифаи тариф ба вазифаи корманд мувофиқат намекунад."
+      : code === "TARIFF_YEAR_MISMATCH" ? "Соли таҳсилии тарифи интихобшуда ба моҳи ҳисоботӣ мувофиқат намекунад."
       : code === "TARIFF_NOT_EFFECTIVE" ? "Тарифи интихобшуда дар моҳи ҳисоботӣ амал намекунад."
       : code === "DEDUCTIONS_EXCEED_GROSS" ? "Нигоҳдоштиҳо аз маблағи ҳисобшуда зиёд буда наметавонанд."
       : isDuplicatePayroll ? "Барои ин корманд дар моҳи интихобшуда табели маош аллакай сабт шудааст."
@@ -96,6 +104,7 @@ export async function handle(request: Request) {
       "TARIFF_STAFF_MISMATCH",
       "TARIFF_POSITION_MISMATCH",
       "TARIFF_NOT_EFFECTIVE",
+      "TARIFF_YEAR_MISMATCH",
       "DEDUCTIONS_EXCEED_GROSS",
     ].includes(code);
     const status = isAuthError ? 401

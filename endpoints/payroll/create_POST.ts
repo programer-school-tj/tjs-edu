@@ -12,6 +12,9 @@ const schema = z.object({
   payrollMonth: z.string().regex(/^20[0-9]{2}-(0[1-9]|1[0-2])$/),
   tariffId: z.string().uuid().optional(),
   baseAmount: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Маблағи асосӣ бояд то 2 рақами пас аз вергул бошад."),
+  workRate: z.number().min(0.01).max(5).refine(hasAtMostTwoDecimals).default(1),
+  weeklyHours: z.number().min(0).max(60).refine(hasAtMostTwoDecimals).default(0),
+  workingDays: z.number().int().min(0).max(31).default(0),
   allowances: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Иловапулӣ бояд то 2 рақами пас аз вергул бошад.").default(0),
   deductions: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals, "Нигоҳдошт бояд то 2 рақами пас аз вергул бошад.").default(0),
   classHeadAllowance: z.number().min(0).max(1000000).refine(hasAtMostTwoDecimals).default(0),
@@ -51,10 +54,11 @@ export async function handle(request: Request) {
       let baseAmountCents = Math.round(x.baseAmount * 100);
       if (x.tariffId) {
         const tariff = await trx.selectFrom("institutionTariffs")
-          .select(["id", "staffId", "positionTitle", "monthlyBase", "effectiveFrom", "effectiveTo", "academicYear"])
+          .select(["id", "staffId", "positionTitle", "monthlyBase", "weeklyHours", "effectiveFrom", "effectiveTo", "academicYear"])
           .where("id", "=", x.tariffId).where("institutionId", "=", x.institutionId).executeTakeFirst();
         if (!tariff) throw new Error("TARIFF_NOT_FOUND");
         if (tariff.staffId && tariff.staffId !== staff.id) throw new Error("TARIFF_STAFF_MISMATCH");
+      x.weeklyHours = Number(tariff.weeklyHours ?? x.weeklyHours);
         if (tariff.positionTitle.trim().toLocaleLowerCase() !== staff.positionTitle.trim().toLocaleLowerCase()) throw new Error("TARIFF_POSITION_MISMATCH");
         const monthYear = Number(x.payrollMonth.slice(0, 4));
         const monthNumber = Number(x.payrollMonth.slice(5, 7));
@@ -91,7 +95,7 @@ export async function handle(request: Request) {
       const netAmount = (grossAmountCents - deductionsCents) / 100;
       return trx.insertInto("institutionPayrollEntries").values({
         institutionId: x.institutionId, staffId: x.staffId, payrollMonth: new Date(`${x.payrollMonth}-01T00:00:00.000Z`),
-        tariffId: x.tariffId || null, baseAmount, allowances, grossAmount,
+        tariffId: x.tariffId || null, baseAmount, allowances, grossAmount, workRate: x.workRate, weeklyHours: x.weeklyHours, workingDays: x.workingDays,
         classHeadAllowance: classHeadAllowanceCents / 100,
         notebookCheckingAllowance: notebookCheckingAllowanceCents / 100,
         methodicalAssociationHeadAllowance: methodicalAssociationHeadAllowanceCents / 100,

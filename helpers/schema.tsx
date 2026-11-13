@@ -219,6 +219,20 @@ export interface InstitutionTariffs {
   weeklyHours: Numeric | null;
 }
 
+export interface InstitutionTimetableSettings {
+  academicYear: string;
+  classDailyLimit: number;
+  classDailyLimits: Generated<Json>;
+  institutionId: string;
+  maxLessonsPerDay: number;
+  schoolDays: number;
+  shiftSplitGrade: number;
+  teacherDailyLimit: number;
+  teacherDailyLimits: Generated<Json>;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: number | null;
+}
+
 export interface InstitutionTeachingLoads {
   academicYear: string;
   classId: string;
@@ -305,6 +319,7 @@ export interface DB {
   institutionStudents: InstitutionStudents;
   institutionTariffs: InstitutionTariffs;
   institutionTimetableEntries: InstitutionTimetableEntries;
+  institutionTimetableSettings: InstitutionTimetableSettings;
   institutionTeachingLoads: InstitutionTeachingLoads;
   loginAttempts: LoginAttempts;
   passwordResetCodes: PasswordResetCodes;

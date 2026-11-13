@@ -56,14 +56,18 @@ export async function handle(request: Request) {
         if (!tariff) throw new Error("TARIFF_NOT_FOUND");
         if (tariff.staffId && tariff.staffId !== staff.id) throw new Error("TARIFF_STAFF_MISMATCH");
         if (tariff.positionTitle.trim().toLocaleLowerCase() !== staff.positionTitle.trim().toLocaleLowerCase()) throw new Error("TARIFF_POSITION_MISMATCH");
-        const monthDate = new Date(`${x.payrollMonth}-01T00:00:00.000Z`);
         const monthYear = Number(x.payrollMonth.slice(0, 4));
         const monthNumber = Number(x.payrollMonth.slice(5, 7));
+        const monthStart = new Date(Date.UTC(monthYear, monthNumber - 1, 1));
+        const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0, 23, 59, 59, 999));
         const payrollAcademicYear = monthNumber >= 9
           ? `${monthYear}-${monthYear + 1}`
           : `${monthYear - 1}-${monthYear}`;
         if (tariff.academicYear !== payrollAcademicYear) throw new Error("TARIFF_YEAR_MISMATCH");
-        if (tariff.effectiveFrom > monthDate || (tariff.effectiveTo && tariff.effectiveTo < monthDate)) throw new Error("TARIFF_NOT_EFFECTIVE");
+        // Тариф бояд тамоми моҳи ҳисоботиро фаро гирад, на танҳо рӯзи якумро.
+        if (tariff.effectiveFrom > monthStart || (tariff.effectiveTo && tariff.effectiveTo < monthEnd)) {
+          throw new Error("TARIFF_NOT_EFFECTIVE");
+        }
         baseAmountCents = Math.round(Number(tariff.monthlyBase) * 100);
       }
 

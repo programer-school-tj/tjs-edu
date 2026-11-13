@@ -36,7 +36,7 @@ export async function handle(request: Request) {
     if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассиса метавонад ҷадвал созад." }), { status: 403 });
 
     const result = await withPlanQuota(x.institutionId, "timetable", async (trx) => {
-      const [loads, staff, existing, availability] = await Promise.all([
+      const [loads, staff, existing, availability, settings] = await Promise.all([
         trx.selectFrom("institutionTeachingLoads").innerJoin("institutionClasses", "institutionClasses.id", "institutionTeachingLoads.classId")
           .select(["institutionTeachingLoads.id", "institutionTeachingLoads.classId", "institutionTeachingLoads.staffId", "institutionTeachingLoads.subject", "institutionTeachingLoads.weeklyHours", "institutionClasses.grade"])
           .where("institutionTeachingLoads.institutionId", "=", x.institutionId).where("institutionTeachingLoads.academicYear", "=", x.academicYear).execute(),
@@ -45,7 +45,16 @@ export async function handle(request: Request) {
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "lessonNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
+        trx.selectFrom("institutionTimetableSettings").selectAll()
+          .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst(),
       ]);
+      const schoolDays = Number(settings?.schoolDays ?? 6);
+      const maxLessonsPerDay = Number(settings?.maxLessonsPerDay ?? 6);
+      const teacherDailyLimit = Number(settings?.teacherDailyLimit ?? 6);
+      const classDailyLimit = Number(settings?.classDailyLimit ?? 6);
+      const shiftSplitGrade = Number(settings?.shiftSplitGrade ?? 7);
+      const teacherDailyLimits = (settings?.teacherDailyLimits || {}) as Record<string, number>;
+      const classDailyLimits = (settings?.classDailyLimits || {}) as Record<string, number>;
       if (!loads.length) throw new Error("NO_TEACHING_LOADS");
       const staffMap = new Map(staff.map((row) => [row.id, row]));
       if (loads.some((load) => !staffMap.has(load.staffId))) throw new Error("LOAD_TEACHER_NOT_ACTIVE");
@@ -97,7 +106,7 @@ export async function handle(request: Request) {
       let best: Slot[] | null = null;
       let bestTasks: Task[] = [];
       const slotList: Slot[] = [];
-      for (let weekday = 1; weekday <= 6; weekday++) for (let lessonNumber = 1; lessonNumber <= 6; lessonNumber++) slotList.push({ weekday, lessonNumber, shiftNumber: 1 }, { weekday, lessonNumber, shiftNumber: 2 });
+      for (let weekday = 1; weekday <= schoolDays; weekday++) for (let lessonNumber = 1; lessonNumber <= maxLessonsPerDay; lessonNumber++) slotList.push({ weekday, lessonNumber, shiftNumber: 1 }, { weekday, lessonNumber, shiftNumber: 2 });
 
       for (let attempt = 0; attempt < 80 && !best; attempt++) {
         const occupiedClass = new Set(classSlots);
@@ -116,8 +125,8 @@ export async function handle(request: Request) {
             !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.shiftNumber}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
-            (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < 6 &&
-            (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < 6
+            (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
+            (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );
           if (!candidates.length) { success = false; break; }
           const rankedCandidates = candidates.map((slot) => ({

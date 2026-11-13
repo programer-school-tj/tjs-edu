@@ -162,6 +162,74 @@ export async function handle(request: Request) {
         if (success) { best = placed as Slot[]; bestTasks = remaining; }
       }
 
+      // If randomized greedy placement fails, run a bounded backtracking search.
+      // This can recover from early slot choices that block a later, less flexible task.
+      if (!best) {
+        const orderedTasks = [...tasks].sort((a, b) =>
+          (scarcity.get(a)! - scarcity.get(b)!) ||
+          (b.weeklyHours - a.weeklyHours) ||
+          (Math.random() - 0.5)
+        );
+        const occupiedClass = new Set(classSlots);
+        const occupiedTeacher = new Set(teacherSlots);
+        const dayClasses = new Map(classDayCounts);
+        const dayTeachers = new Map(teacherDayCounts);
+        const placed: Slot[] = new Array(orderedTasks.length);
+        let visitedNodes = 0;
+        const maxSearchNodes = 20000;
+
+        const search = (index: number): boolean => {
+          if (index >= orderedTasks.length) return true;
+          if (++visitedNodes > maxSearchNodes) return false;
+
+          const task = orderedTasks[index];
+          const candidates = slotList.filter((slot) =>
+            slot.shiftNumber === task.shiftNumber &&
+            !occupiedClass.has(`${task.classId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
+            (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
+          );
+          if (!candidates.length) return false;
+
+          const ranked = candidates.map((slot) => ({
+            slot,
+            score:
+              (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) * 10 +
+              (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) * 4 +
+              slot.lessonNumber * 0.01 + Math.random() * 0.2,
+          })).sort((a, b) => a.score - b.score);
+
+          for (const candidate of ranked) {
+            const slot = candidate.slot;
+            const classKey = `${task.classId}:${slot.weekday}:${slot.lessonNumber}`;
+            const teacherKey = `${task.staffId}:${slot.weekday}:${slot.lessonNumber}`;
+            const classDayKey = `${task.classId}:${slot.weekday}`;
+            const teacherDayKey = `${task.staffId}:${slot.weekday}`;
+            occupiedClass.add(classKey);
+            occupiedTeacher.add(teacherKey);
+            dayClasses.set(classDayKey, (dayClasses.get(classDayKey) || 0) + 1);
+            dayTeachers.set(teacherDayKey, (dayTeachers.get(teacherDayKey) || 0) + 1);
+            placed[index] = slot;
+
+            if (search(index + 1)) return true;
+
+            occupiedClass.delete(classKey);
+            occupiedTeacher.delete(teacherKey);
+            dayClasses.set(classDayKey, (dayClasses.get(classDayKey) || 1) - 1);
+            dayTeachers.set(teacherDayKey, (dayTeachers.get(teacherDayKey) || 1) - 1);
+          }
+          return false;
+        };
+
+        if (search(0)) {
+          best = placed;
+          bestTasks = orderedTasks;
+        }
+      }
+
       if (!best) throw new Error("SCHEDULE_NOT_FIT");
       const rows = bestTasks.map((task, index) => ({
         institutionId: x.institutionId, classId: task.classId, staffId: task.staffId, subject: task.subject,

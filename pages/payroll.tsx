@@ -24,7 +24,7 @@ export default function PayrollPage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [quotaNotice, setQuotaNotice] = useState<QuotaNotice>(null);
-  const [f, setF] = useState({ staffId: "", tariffId: "", baseAmount: "", allowances: "0", deductions: "0", notes: "" });
+  const [f, setF] = useState({ staffId: "", tariffId: "", baseAmount: "", classHeadAllowance: "0", notebookCheckingAllowance: "0", methodicalAssociationHeadAllowance: "0", otherAllowances: "0", incomeTaxDeduction: "0", partyDuesDeduction: "0", tradeUnionDuesDeduction: "0", newspaperDeduction: "0", otherDeductions: "0", notes: "" });
 
   useEffect(() => {
     void getInstitutions().then((items) => {
@@ -35,7 +35,7 @@ export default function PayrollPage() {
   }, []);
   useEffect(() => {
     if (!school) return;
-    setF({ staffId: "", tariffId: "", baseAmount: "", allowances: "0", deductions: "0", notes: "" });
+    setF({ staffId: "", tariffId: "", baseAmount: "", classHeadAllowance: "0", notebookCheckingAllowance: "0", methodicalAssociationHeadAllowance: "0", otherAllowances: "0", incomeTaxDeduction: "0", partyDuesDeduction: "0", tradeUnionDuesDeduction: "0", newspaperDeduction: "0", otherDeductions: "0", notes: "" });
     void Promise.all([getStaff(school), getTariffs(school)]).then(([staffRows, tariffRows]) => {
       const activeStaff = staffRows.filter((item: any) => item.isActive);
       setStaff(activeStaff);
@@ -68,12 +68,14 @@ export default function PayrollPage() {
       ? matchingTariffs.filter((item) => item.staffId === selectedStaff.id)
       : matchingTariffs.filter((item) => !item.staffId)
     : matchingTariffs;
-  const gross = Number(f.baseAmount || 0) + Number(f.allowances || 0);
-  const net = gross - Number(f.deductions || 0);
+  const allowanceTotal = Number(f.classHeadAllowance || 0) + Number(f.notebookCheckingAllowance || 0) + Number(f.methodicalAssociationHeadAllowance || 0) + Number(f.otherAllowances || 0);
+  const deductionTotal = Number(f.incomeTaxDeduction || 0) + Number(f.partyDuesDeduction || 0) + Number(f.tradeUnionDuesDeduction || 0) + Number(f.newspaperDeduction || 0) + Number(f.otherDeductions || 0);
+  const gross = Number(f.baseAmount || 0) + allowanceTotal;
+  const net = gross - deductionTotal;
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setErr("");
     try {
-      const result = await addPayroll({ institutionId: school, staffId: f.staffId, payrollMonth: month, tariffId: f.tariffId || undefined, baseAmount: Number(f.baseAmount), allowances: Number(f.allowances), deductions: Number(f.deductions), notes: f.notes });
+      const result = await addPayroll({ institutionId: school, staffId: f.staffId, payrollMonth: month, tariffId: f.tariffId || undefined, baseAmount: Number(f.baseAmount), classHeadAllowance: Number(f.classHeadAllowance), notebookCheckingAllowance: Number(f.notebookCheckingAllowance), methodicalAssociationHeadAllowance: Number(f.methodicalAssociationHeadAllowance), otherAllowances: Number(f.otherAllowances), incomeTaxDeduction: Number(f.incomeTaxDeduction), partyDuesDeduction: Number(f.partyDuesDeduction), tradeUnionDuesDeduction: Number(f.tradeUnionDuesDeduction), newspaperDeduction: Number(f.newspaperDeduction), otherDeductions: Number(f.otherDeductions), notes: f.notes });
       if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
       setRows(await getPayroll(school, month));
     } catch (error) {
@@ -91,11 +93,20 @@ export default function PayrollPage() {
       <label>{t("finance.employee")}<select required value={f.staffId} onChange={(event) => { const staffId = event.target.value; setF((value) => ({ ...value, staffId, tariffId: "", baseAmount: "" })); }}><option value="">{t("finance.select")}</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.positionTitle}</option>)}</select></label>
       <label>{t("finance.category")}<select value={f.tariffId} onChange={(event) => { const id = event.target.value; const tariff = availableTariffs.find((item) => item.id === id); setF((value) => ({ ...value, tariffId: id, baseAmount: tariff ? String(tariff.monthlyBase) : value.baseAmount })); }}><option value="">{t("finance.noLink")}</option>{availableTariffs.map((item) => <option key={item.id} value={item.id}>{item.staffId ? t("finance.personalTariff") : item.positionTitle} · {item.qualificationCategory || ""} · {item.monthlyBase} сомонӣ</option>)}</select>{selectedStaff && matchingTariffs.length === 0 && <small className={styles.note}>{t("finance.noMatchingTariff").replace("{position}", selectedStaff.positionTitle)}</small>}</label>
       <label>{t("finance.baseAmount")}<input required type="number" min="0" step="0.01" value={f.baseAmount} readOnly={!!f.tariffId} onChange={(event) => set("baseAmount", event.target.value)} />{f.tariffId && <small className={styles.note}>{t("finance.tariffAutoAmount")}</small>}</label>
-      <label>{t("finance.allowances")}<input type="number" min="0" step="0.01" value={f.allowances} onChange={(event) => set("allowances", event.target.value)} /></label>
-      <label>{t("finance.deductions")}<input type="number" min="0" step="0.01" value={f.deductions} onChange={(event) => set("deductions", event.target.value)} /></label>
+      <h3>Иловапулиҳо</h3>
+      <label>Роҳбарии синф (сомонӣ)<input type="number" min="0" step="0.01" value={f.classHeadAllowance} onChange={(event) => set("classHeadAllowance", event.target.value)} /></label>
+      <label>Санҷиши дафтарҳо (сомонӣ)<input type="number" min="0" step="0.01" value={f.notebookCheckingAllowance} onChange={(event) => set("notebookCheckingAllowance", event.target.value)} /></label>
+      <label>Роҳбарии иттиҳодияи методӣ (сомонӣ)<input type="number" min="0" step="0.01" value={f.methodicalAssociationHeadAllowance} onChange={(event) => set("methodicalAssociationHeadAllowance", event.target.value)} /></label>
+      <label>Иловапулиҳои дигар (сомонӣ)<input type="number" min="0" step="0.01" value={f.otherAllowances} onChange={(event) => set("otherAllowances", event.target.value)} /></label>
+      <h3>Нигоҳдоштҳо</h3>
+      <label>Андоз аз даромад (сомонӣ)<input type="number" min="0" step="0.01" value={f.incomeTaxDeduction} onChange={(event) => set("incomeTaxDeduction", event.target.value)} /></label>
+      <label>Ҳаққи узвияти ҳизб (сомонӣ)<input type="number" min="0" step="0.01" value={f.partyDuesDeduction} onChange={(event) => set("partyDuesDeduction", event.target.value)} /></label>
+      <label>Ҳаққи иттифоқи касаба (сомонӣ)<input type="number" min="0" step="0.01" value={f.tradeUnionDuesDeduction} onChange={(event) => set("tradeUnionDuesDeduction", event.target.value)} /></label>
+      <label>Рӯзнома (сомонӣ)<input type="number" min="0" step="0.01" value={f.newspaperDeduction} onChange={(event) => set("newspaperDeduction", event.target.value)} /></label>
+      <label>Нигоҳдоштҳои дигар (сомонӣ)<input type="number" min="0" step="0.01" value={f.otherDeductions} onChange={(event) => set("otherDeductions", event.target.value)} /></label>
       <label>{t("finance.notes")}<input value={f.notes} onChange={(event) => set("notes", event.target.value)} /></label>
       <div className={styles.totals}><span>{t("finance.gross")} <b>{gross.toFixed(2)} сомонӣ</b></span><span>{t("finance.net")} <b>{net.toFixed(2)} сомонӣ</b></span></div>
-      <button disabled={busy || !school || !f.staffId || Number(f.deductions) > gross}>{busy ? t("finance.saving") : t("finance.savePayroll")}</button>
+      <button disabled={busy || !school || !f.staffId || deductionTotal > gross}>{busy ? t("finance.saving") : t("finance.savePayroll")}</button>
     </form></section>
     <section className={styles.panel}><h2>{t("finance.payrollList")} · {month} ({rows.length})</h2><div className={styles.table}><table><thead><tr><th>{t("finance.employeeHeader")}</th><th>{t("finance.positionHeader")}</th><th>{t("finance.baseAmount")}</th><th>{t("finance.allowances")}</th><th>{t("finance.gross")}</th><th>{t("finance.deductions")}</th><th>{t("finance.net")}</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{row.fullName}</td><td>{row.positionTitle}</td><td>{Number(row.baseAmount).toFixed(2)}</td><td>{Number(row.allowances).toFixed(2)}</td><td>{Number(row.grossAmount).toFixed(2)}</td><td>{Number(row.deductions).toFixed(2)}</td><td><b>{Number(row.netAmount).toFixed(2)}</b></td></tr>)}</tbody></table>{!rows.length && <p>{t("finance.noPayroll")}</p>}</div></section>
     <footer>© 2026 TJS Edu · {t("finance.accountingFooter")}</footer>

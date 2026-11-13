@@ -112,17 +112,26 @@ export interface InstitutionMemberships {
 export interface InstitutionPayrollEntries {
   allowances: Generated<Numeric>;
   baseAmount: Generated<Numeric>;
+  classHeadAllowance: Generated<Numeric>;
   createdAt: Generated<Timestamp>;
   createdBy: number;
   deductions: Generated<Numeric>;
   grossAmount: Generated<Numeric>;
   id: Generated<string>;
+  incomeTaxDeduction: Generated<Numeric>;
   institutionId: string;
+  methodicalAssociationHeadAllowance: Generated<Numeric>;
   netAmount: Generated<Numeric>;
+  newspaperDeduction: Generated<Numeric>;
+  notebookCheckingAllowance: Generated<Numeric>;
   notes: string | null;
+  otherAllowances: Generated<Numeric>;
+  otherDeductions: Generated<Numeric>;
+  partyDuesDeduction: Generated<Numeric>;
   payrollMonth: Timestamp;
   staffId: string;
   tariffId: string | null;
+  tradeUnionDuesDeduction: Generated<Numeric>;
   updatedAt: Generated<Timestamp>;
 }
 

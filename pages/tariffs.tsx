@@ -31,7 +31,7 @@ export default function TariffsPage() {
       if (approved[0]) setSchool(approved[0].id);
     }).catch((error) => setErr(error.message));
   }, []);
-  useEffect(() => { if (school) { setF((value) => ({ ...value, staffId: "" })); void Promise.all([getTariffs(school), getStaff(school)]).then(([tariffRows, staffRows]) => { setRows(tariffRows); setStaff(staffRows.filter((item: any) => item.isActive)); }).catch((error) => setErr(error.message)); } }, [school]);
+  useEffect(() => { if (school) { setF({ staffId: "", positionTitle: "Омӯзгор", educationLevel: "Маълумоти олӣ", qualificationCategory: "Бе категория", weeklyHours: "18", monthlyBase: "", effectiveFrom: "2026-09-01", effectiveTo: "", academicYear: "2026-2027", sourceTitle: "", sourceReference: "", notes: "" }); setErr(""); void Promise.all([getTariffs(school), getStaff(school)]).then(([tariffRows, staffRows]) => { setRows(tariffRows); setStaff(staffRows.filter((item: any) => item.isActive)); }).catch((error) => setErr(error.message)); } }, [school]);
   const templateCells = useMemo(() => buildTariffTemplateCells(staff, rows, f.academicYear, new Date(`${f.effectiveFrom}T00:00:00`)), [staff, rows, f.academicYear, f.effectiveFrom]);
   const set = (key: string, value: string) => setF((current) => ({ ...current, [key]: value }));
   const save = async (event: React.FormEvent) => {

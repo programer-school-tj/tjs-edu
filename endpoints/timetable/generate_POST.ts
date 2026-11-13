@@ -93,7 +93,7 @@ export async function handle(request: Request) {
 
       const blockedTeacherSlots = new Set(availability.map((slot) => `${slot.staffId}:${slot.weekday}:${slot.lessonNumber}`));
       const classSlots = new Set(existing.map((e) => `${e.classId}:${e.weekday}:${e.lessonNumber}`));
-      const teacherSlots = new Set(existing.map((e) => `${e.staffId}:${e.weekday}:${e.shiftNumber}:${e.lessonNumber}`));
+      const teacherSlots = new Set(existing.map((e) => `${e.staffId}:${e.weekday}:${e.lessonNumber}`));
       const classDayCounts = new Map<string, number>();
       const teacherDayCounts = new Map<string, number>();
       for (const e of existing) {
@@ -122,7 +122,7 @@ export async function handle(request: Request) {
           const candidates = slotList.filter((slot) =>
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(`${task.classId}:${slot.weekday}:${slot.lessonNumber}`) &&
-            !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.shiftNumber}:${slot.lessonNumber}`) &&
+            !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
@@ -140,7 +140,7 @@ export async function handle(request: Request) {
           const chosen = rankedCandidates[0].slot;
           placed[i] = chosen;
           occupiedClass.add(`${task.classId}:${chosen.weekday}:${chosen.lessonNumber}`);
-          occupiedTeacher.add(`${task.staffId}:${chosen.weekday}:${chosen.shiftNumber}:${chosen.lessonNumber}`);
+          occupiedTeacher.add(`${task.staffId}:${chosen.weekday}:${chosen.lessonNumber}`);
           const ck = `${task.classId}:${chosen.weekday}`;
           dayClasses.set(ck, (dayClasses.get(ck) || 0) + 1);
           const tk = `${task.staffId}:${chosen.weekday}`;

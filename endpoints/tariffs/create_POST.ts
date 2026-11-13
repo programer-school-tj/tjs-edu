@@ -23,6 +23,17 @@ const schema = z.object({
 }).refine(
   (value) => !value.effectiveTo || value.effectiveTo >= value.effectiveFrom,
   { path: ["effectiveTo"], message: "Санаи анҷом набояд аз санаи оғоз пештар бошад." },
+).refine(
+  (value) => {
+    const [startYear, endYear] = value.academicYear.split("-").map(Number);
+    if (endYear !== startYear + 1) return false;
+    const schoolYearStart = `${startYear}-09-01`;
+    const schoolYearEnd = `${endYear}-08-31`;
+    return value.effectiveFrom >= schoolYearStart
+      && value.effectiveFrom <= schoolYearEnd
+      && (!value.effectiveTo || value.effectiveTo <= schoolYearEnd);
+  },
+  { path: ["academicYear"], message: "Соли таҳсил бояд пайдарпай бошад ва муҳлати тариф дар ҳудуди сентябр–август ҷой гирад." },
 );
 
 export async function handle(request: Request) {

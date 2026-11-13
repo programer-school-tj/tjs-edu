@@ -83,8 +83,8 @@ export async function handle(request: Request) {
           && normalize(item.educationLevel) === normalize(x.educationLevel)
           && normalize(item.qualificationCategory) === normalize(x.qualificationCategory);
         if (!sameScope) return false;
-        const oldStart = new Date(item.effectiveFrom).getTime();
-        const oldEnd = item.effectiveTo ? new Date(item.effectiveTo).getTime() : Number.POSITIVE_INFINITY;
+        const oldStart = item.effectiveFrom.getTime();
+        const oldEnd = item.effectiveTo ? item.effectiveTo.getTime() : Number.POSITIVE_INFINITY;
         return newStart <= oldEnd && oldStart <= newEnd;
       });
       if (overlapping) throw new Error("TARIFF_PERIOD_OVERLAP");

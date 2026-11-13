@@ -67,8 +67,8 @@ export async function handle(request: Request) {
         classDayHours.set(classDayKey, (classDayHours.get(classDayKey) || 0) + 1);
       }
       const occupiedClass = new Set(existing.map((row) => `${row.classId}:${row.weekday}:${row.lessonNumber}`));
-      const occupiedTeacher = new Set(existing.map((row) => `${row.staffId}:${row.weekday}:${row.shiftNumber}:${row.lessonNumber}`));
-      const occupiedRooms = new Set(existing.filter((row) => row.room?.trim()).map((row) => `${row.room!.trim().toLocaleLowerCase()}:${row.weekday}:${row.shiftNumber}:${row.lessonNumber}`));
+      const occupiedTeacher = new Set(existing.map((row) => `${row.staffId}:${row.weekday}:${row.lessonNumber}`));
+      const occupiedRooms = new Set(existing.filter((row) => row.room?.trim()).map((row) => `${row.room!.trim().toLocaleLowerCase()}:${row.weekday}:${row.lessonNumber}`));
       const newRows: Array<{ institutionId: string; classId: string; staffId: string; subject: string; shiftNumber: number; weekday: number; lessonNumber: number; room: string | null; academicYear: string; createdBy: number }> = [];
       const importedHours = new Map<string, number>();
 
@@ -87,9 +87,9 @@ export async function handle(request: Request) {
         const classDayKey = cls.id + ":" + row.weekday;
         if ((classDayHours.get(classDayKey) || 0) >= Math.min(classLimit, Number(classDailyLimits[cls.id] ?? classLimit))) throw new Error(`ROW_${index + 2}_CLASS_DAILY_LIMIT`);
         const classSlot = `${cls.id}:${row.weekday}:${row.lessonNumber}`;
-        const teacherSlot = `${teacher.id}:${row.weekday}:${shiftNumber}:${row.lessonNumber}`;
+        const teacherSlot = `${teacher.id}:${row.weekday}:${row.lessonNumber}`;
         const normalizedRoom = row.room.trim().toLocaleLowerCase();
-        const roomSlot = normalizedRoom ? `${normalizedRoom}:${row.weekday}:${shiftNumber}:${row.lessonNumber}` : "";
+        const roomSlot = normalizedRoom ? `${normalizedRoom}:${row.weekday}:${row.lessonNumber}` : "";
         if (occupiedClass.has(classSlot) || occupiedTeacher.has(teacherSlot) || (roomSlot && occupiedRooms.has(roomSlot))) throw new Error(`ROW_${index + 2}_CONFLICT`);
         occupiedClass.add(classSlot);
         occupiedTeacher.add(teacherSlot);

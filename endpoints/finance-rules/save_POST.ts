@@ -12,12 +12,30 @@ const schema = z.object({
   calculationType: z.enum(["fixed", "percentage", "formula"]),
   numericValue: z.number().min(-1000000).max(1000000000).optional(),
   formula: z.string().trim().max(500).optional(),
-  appliesTo: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).default({}),
+  appliesTo: z.object({
+    target: z.enum(["baseAmount", "weeklyHours", "classHeadAllowance", "notebookCheckingAllowance", "methodicalAssociationHeadAllowance", "otherAllowances", "incomeTaxDeduction", "partyDuesDeduction", "tradeUnionDuesDeduction", "newspaperDeduction", "otherDeductions"]),
+    base: z.enum(["baseAmount", "grossAmount", "allowances", "weeklyHours", "workRate", "workingDays"]).optional(),
+    institutionType: z.string().max(40).optional(),
+    positionTitle: z.string().max(180).optional(),
+    qualificationCategory: z.string().max(80).optional(),
+    educationLevel: z.string().max(80).optional(),
+  }),
   effectiveFrom: z.string().date(),
   sourceTitle: z.string().trim().min(3).max(240),
   sourceReference: z.string().max(500).optional(),
   notes: z.string().max(1000).optional(),
 }).superRefine((value, ctx) => {
+  const target = value.appliesTo.target;
+  const allowanceTargets = ["classHeadAllowance", "notebookCheckingAllowance", "methodicalAssociationHeadAllowance", "otherAllowances"];
+  const deductionTargets = ["incomeTaxDeduction", "partyDuesDeduction", "tradeUnionDuesDeduction", "newspaperDeduction", "otherDeductions"];
+  const targetMatchesCategory = value.category === "other"
+    || (value.category === "base_salary" && target === "baseAmount")
+    || (value.category === "work_hours" && target === "weeklyHours")
+    || (value.category === "allowance" && allowanceTargets.includes(target))
+    || (value.category === "deduction" && deductionTargets.includes(target));
+  if (!targetMatchesCategory) {
+    ctx.addIssue({ code: "custom", path: ["appliesTo", "target"], message: "Қисми маош ба гурӯҳи интихобшуда мувофиқат намекунад." });
+  }
   if (value.calculationType === "formula") {
     if (!value.formula?.startsWith("=")) {
       ctx.addIssue({ code: "custom", path: ["formula"], message: "Формула бояд бо аломати = оғоз шавад." });

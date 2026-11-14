@@ -98,13 +98,13 @@ export function calculateFinanceRuleValue(
 
 export function aggregateFinanceRuleValues(rules: FinanceRuleInput[], context: FinanceCalculationContext) {
   const totals: Partial<Record<FinanceRuleTarget, number>> = {};
-  const snapshots: Array<{ id: string; ruleKey: string; title: string; target: FinanceRuleTarget; calculationType: string; numericValue: number | string | null; formula: string | null; sourceTitle: string; sourceReference: string | null; appliedAmount: number }> = [];
+  const snapshots: Array<{ id: string; ruleKey: string; title: string; target: FinanceRuleTarget; calculationType: string; numericValue: number | string | null; formula: string | null; appliesTo: Record<string, unknown>; effectiveFrom: Date | string; effectiveTo: Date | string | null; sourceTitle: string; sourceReference: string | null; appliedAmount: number }> = [];
   for (const rule of rules) {
     const target = getFinanceRuleTarget(rule);
     if (!target) continue;
     const appliedAmount = calculateFinanceRuleValue(rule, context);
     totals[target] = Math.round(((totals[target] ?? 0) + appliedAmount + Number.EPSILON) * 100) / 100;
-    snapshots.push({ id: rule.id, ruleKey: rule.ruleKey, title: rule.title, target, calculationType: rule.calculationType, numericValue: rule.numericValue, formula: rule.formula, sourceTitle: rule.sourceTitle, sourceReference: rule.sourceReference, appliedAmount });
+    snapshots.push({ id: rule.id, ruleKey: rule.ruleKey, title: rule.title, target, calculationType: rule.calculationType, numericValue: rule.numericValue, formula: rule.formula, appliesTo: rule.appliesTo, effectiveFrom: rule.effectiveFrom, effectiveTo: rule.effectiveTo, sourceTitle: rule.sourceTitle, sourceReference: rule.sourceReference, appliedAmount });
   }
   return { totals, snapshots };
 }

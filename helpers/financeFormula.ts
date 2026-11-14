@@ -127,7 +127,9 @@ export function evaluateFinanceFormula(formula: string, readCell: FormulaCellRea
       const value = numeric(parseUnary());
       return op === "-" ? -value : value;
     }
-    return parsePrimary();
+    let value = parsePrimary();
+    while (peek()?.type === "percent") { take(); value = numeric(value) / 100; }
+    return value;
   };
   const parsePrimary = (): FormulaValue => {
     const token = take();
@@ -179,7 +181,6 @@ export function evaluateFinanceFormula(formula: string, readCell: FormulaCellRea
   };
   const result = parseComparison();
   if (position !== tokens.length) {
-    if (peek()?.type === "percent") { take(); if (position === tokens.length) return numeric(result) / 100; }
     throw new Error("Дар охири формула аломатҳои зиёдатӣ ҳастанд.");
   }
   const value = numeric(result);

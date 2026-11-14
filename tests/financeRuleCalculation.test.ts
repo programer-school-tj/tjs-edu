@@ -36,6 +36,13 @@ test("calculates a percentage against its selected payroll base", () => {
   assert.equal(calculateFinanceRuleValue(rule(), context), 325);
 });
 
+test("treats base salary and weekly-hours percentages as adjustments", () => {
+  const salaryRule = rule({ appliesTo: { target: "baseAmount", base: "baseAmount" }, numericValue: 25, category: "base_salary" });
+  const hoursRule = rule({ appliesTo: { target: "weeklyHours", base: "weeklyHours" }, numericValue: -10, category: "work_hours" });
+  assert.equal(calculateFinanceRuleValue(salaryRule, context), 2500);
+  assert.equal(calculateFinanceRuleValue(hoursRule, context), 16.2);
+});
+
 test("calculates fixed and Excel-style formula rules", () => {
   assert.equal(calculateFinanceRuleValue(rule({ calculationType: "fixed", numericValue: 75 }), context), 75);
   assert.equal(calculateFinanceRuleValue(rule({ calculationType: "formula", numericValue: null, formula: "=ROUND(A2*13%,2)" }), context), 325);

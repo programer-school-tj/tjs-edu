@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
+import { applyPercentageAdjustment } from "../../helpers/financeFormula";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -65,8 +66,12 @@ export async function handle(request: Request) {
       const changed = [];
       for (const tariff of active) {
         const oldAmount = Number(tariff.monthlyBase);
-        const newAmount = Math.round((oldAmount * (1 + input.adjustmentPercent / 100) + Number.EPSILON) * 100) / 100;
-        if (!Number.isFinite(newAmount) || newAmount <= 0 || newAmount > 1000000) throw new Error("ADJUSTED_AMOUNT_OUT_OF_RANGE");
+        let newAmount: number;
+        try {
+          newAmount = applyPercentageAdjustment(oldAmount, input.adjustmentPercent);
+        } catch {
+          throw new Error("ADJUSTED_AMOUNT_OUT_OF_RANGE");
+        }
 
         await trx.updateTable("institutionTariffs")
           .set({ effectiveTo: dayBefore })

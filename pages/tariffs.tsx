@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
-import { getTariffs, addTariff } from "../helpers/financeScheduleClient";
+import { getTariffs, addTariff, adjustTariffs } from "../helpers/financeScheduleClient";
 import { getStaff } from "../helpers/staffClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
@@ -23,6 +23,8 @@ export default function TariffsPage() {
   const [busy, setBusy] = useState(false);
   const [quotaNotice, setQuotaNotice] = useState<QuotaNotice>(null);
   const [f, setF] = useState({ staffId: "", positionTitle: "Омӯзгор", educationLevel: "Маълумоти олӣ", qualificationCategory: "Бе категория", weeklyHours: "18", monthlyBase: "", effectiveFrom: "2026-09-01", effectiveTo: "", academicYear: "2026-2027", sourceTitle: "", sourceReference: "", notes: "" });
+  const [adjustment, setAdjustment] = useState({ percent: "", effectiveFrom: "", positionTitle: "", sourceTitle: "", sourceReference: "", notes: "" });
+  const [adjustmentBusy, setAdjustmentBusy] = useState(false);
 
   useEffect(() => {
     void getInstitutions().then((items) => {
@@ -46,6 +48,40 @@ export default function TariffsPage() {
     } finally { setBusy(false); }
   };
 
+  const applyAdjustment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const percent = Number(adjustment.percent);
+    if (!school || !adjustment.effectiveFrom || !Number.isFinite(percent) || percent <= -100 || percent > 500 || !adjustment.sourceTitle.trim()) {
+      setErr("Фоиз, сана ва манбаи тағйиротро дуруст ворид кунед.");
+      return;
+    }
+    const scopeText = adjustment.positionTitle ? `вазифаи «${adjustment.positionTitle}»` : "ҳамаи тарифҳои муассиса";
+    const accepted = window.confirm(`Оё ${percent}% тағйиротро барои ${scopeText} аз ${adjustment.effectiveFrom} татбиқ мекунед? Тарифҳои пешина нигоҳ дошта мешаванд. Сабтҳои маоши аллакай ҳисобшуда тағйир намеёбанд.`);
+    if (!accepted) return;
+    setAdjustmentBusy(true); setErr("");
+    try {
+      const result = await adjustTariffs({
+        institutionId: school,
+        academicYear: f.academicYear,
+        effectiveFrom: adjustment.effectiveFrom,
+        adjustmentPercent: percent,
+        positionTitle: adjustment.positionTitle || undefined,
+        sourceTitle: adjustment.sourceTitle.trim(),
+        sourceReference: adjustment.sourceReference.trim() || undefined,
+        notes: adjustment.notes.trim() || undefined,
+      });
+      if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
+      setRows(await getTariffs(school));
+      setAdjustment({ percent: "", effectiveFrom: "", positionTitle: "", sourceTitle: "", sourceReference: "", notes: "" });
+      setErr("");
+      window.alert(`Тағйирот сабт шуд. ${result.changedCount} тариф аз санаи ${adjustment.effectiveFrom} нав карда шуд.`);
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Тағйироти тариф сабт нашуд.");
+    } finally {
+      setAdjustmentBusy(false);
+    }
+  };
+
   return <main className={styles.page}><div className={styles.wrap}>
     <header><div><small>TJS EDU · МОЛИЯ ВА КАДРҲО</small><h1>{t("finance.tariffsTitle")}</h1><p>{t("finance.tariffsSubtitle")}</p></div><div className={styles.actions}><LanguageSwitcher /><button className={styles.printButton} onClick={() => window.print()}>🖨 {t("common.printA4")}</button><button onClick={() => nav("/")}>← {t("common.mainDashboard")}</button></div></header>
     {err && <p className={styles.error}>{err}</p>}
@@ -66,6 +102,20 @@ export default function TariffsPage() {
       <label className={styles.wide}>{t("finance.notes")}<textarea value={f.notes} onChange={(event) => set("notes", event.target.value)} /></label>
       <button disabled={busy || !school}>{busy ? "Сабт..." : "Сабти тариф"}</button>
     </form></section>
+    <section className={styles.panel}>
+      <h2>Тағйир додани фоизи маош</h2>
+      <p className={styles.note}>Барои зиёд ё кам шудани маош аз тарафи Ҳукумат, фоиз ва санаи оғози амалро ворид кунед. Барнома тарифҳои нав месозад ва версияи пешинаро нигоҳ медорад. Агар маблағи тарифи ҷорӣ аллакай тағйироти мазкурро дар бар гирад, ин амалиётро такроран иҷро накунед.</p>
+      <form onSubmit={applyAdjustment}>
+        <label>Фоизи тағйирот (+ зиёд, - кам)<input required type="number" min="-99.99" max="500" step="0.01" value={adjustment.percent} onChange={(event) => setAdjustment((value) => ({ ...value, percent: event.target.value }))} placeholder="Масалан: 25" /></label>
+        <label>Санаи оғози амал<input required type="date" value={adjustment.effectiveFrom} onChange={(event) => setAdjustment((value) => ({ ...value, effectiveFrom: event.target.value }))} /></label>
+        <label>Доираи татбиқ<select value={adjustment.positionTitle} onChange={(event) => setAdjustment((value) => ({ ...value, positionTitle: event.target.value }))}><option value="">Ҳамаи тарифҳои муассиса</option>{Array.from(new Set(rows.map((row) => row.positionTitle).filter(Boolean))).sort().map((position) => <option key={position} value={position}>{position}</option>)}</select></label>
+        <label>Санад / манбаи тағйирот<input required value={adjustment.sourceTitle} onChange={(event) => setAdjustment((value) => ({ ...value, sourceTitle: event.target.value }))} placeholder="Ном ё рақами қарор" /></label>
+        <label className={styles.wide}>Пайванд ё рақами санад<input value={adjustment.sourceReference} onChange={(event) => setAdjustment((value) => ({ ...value, sourceReference: event.target.value }))} /></label>
+        <label className={styles.wide}>Эзоҳ<textarea value={adjustment.notes} onChange={(event) => setAdjustment((value) => ({ ...value, notes: event.target.value }))} /></label>
+        <button type="submit" disabled={adjustmentBusy || !school || !rows.length}>{adjustmentBusy ? "Ҳисоб ва сабт..." : "Татбиқи тағйироти фоизӣ"}</button>
+      </form>
+      <p className={styles.note}>Намуна: агар тарифи ҷорӣ 2 000 сомонӣ бошад ва 25% зиёд шавад, тарифи нав 2 500 сомонӣ мешавад. Тағйирот танҳо ба маошҳои наве таъсир мекунад, ки аз санаи амал баъд ҳисоб карда мешаванд.</p>
+    </section>
     <section className={styles.panel}><h2>{t("finance.tariffsEntered")} ({rows.length})</h2><div className={styles.table}><table><thead><tr><th>{t("finance.employee")}</th><th>{t("finance.positionUpper")}</th><th>{t("finance.educationCategory")}</th><th>{t("finance.hours")}</th><th>{t("finance.totalSomoni")}</th><th>СОЛ</th><th>{t("finance.source")}</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{staff.find((item) => item.id === row.staffId)?.fullName || "Умумӣ"}</td><td>{row.positionTitle}</td><td>{row.educationLevel || "—"} · {row.qualificationCategory || "—"}</td><td>{row.weeklyHours || "—"}</td><td>{Number(row.monthlyBase).toFixed(2)}</td><td>{row.academicYear}</td><td>{row.sourceTitle || "Манбаъ нишон дода нашудааст"}</td></tr>)}</tbody></table>{!rows.length && <p>{t("finance.noTariffs")}</p>}</div></section>
     <footer>© 2026 TJS Edu · Тарифҳои воридшуда худкор расмӣ ҳисобида намешаванд.</footer>
   </div><PlanQuotaNotice status={quotaNotice} onClose={() => setQuotaNotice(null)} /></main>;

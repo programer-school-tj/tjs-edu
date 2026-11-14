@@ -130,6 +130,7 @@ export interface InstitutionMemberships {
 }
 
 export interface InstitutionPayrollEntries {
+  financeRuleSnapshot: Generated<Json>;
   allowances: Generated<Numeric>;
   baseAmount: Generated<Numeric>;
   classHeadAllowance: Generated<Numeric>;

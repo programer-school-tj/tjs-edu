@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
+import { aggregateFinanceRuleValues, getFinanceRuleTarget, matchesFinanceRule, type FinanceRuleInput, type FinanceRuleTarget } from "../../helpers/financeRuleCalculation";
 
 const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-7;
 
@@ -49,6 +50,8 @@ export async function handle(request: Request) {
       const staff = await trx.selectFrom("institutionStaff").select(["id", "positionTitle"])
         .where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst();
       if (!staff) throw new Error("STAFF_NOT_FOUND");
+      const institution = await trx.selectFrom("institutions").select(["institutionType"])
+        .where("id", "=", x.institutionId).executeTakeFirstOrThrow();
       const payrollYear = Number(x.payrollMonth.slice(0, 4));
       const payrollMonthNumber = Number(x.payrollMonth.slice(5, 7));
       const daysInPayrollMonth = new Date(Date.UTC(payrollYear, payrollMonthNumber, 0)).getUTCDate();
@@ -56,9 +59,11 @@ export async function handle(request: Request) {
 
       // Ҳисобҳои пулӣ бо дирам (integer cents) иҷро мешаванд, то хатои float ҷамъ нашавад.
       let baseAmountCents = Math.round(x.baseAmount * 100);
+      let qualificationCategory: string | null = null;
+      let educationLevel: string | null = null;
       if (x.tariffId) {
         const tariff = await trx.selectFrom("institutionTariffs")
-          .select(["id", "staffId", "positionTitle", "monthlyBase", "weeklyHours", "effectiveFrom", "effectiveTo", "academicYear"])
+          .select(["id", "staffId", "positionTitle", "monthlyBase", "weeklyHours", "effectiveFrom", "effectiveTo", "academicYear", "qualificationCategory", "educationLevel"])
           .where("id", "=", x.tariffId).where("institutionId", "=", x.institutionId).executeTakeFirst();
         if (!tariff) throw new Error("TARIFF_NOT_FOUND");
         if (tariff.staffId && tariff.staffId !== staff.id) throw new Error("TARIFF_STAFF_MISMATCH");
@@ -77,17 +82,74 @@ export async function handle(request: Request) {
           throw new Error("TARIFF_NOT_EFFECTIVE");
         }
         baseAmountCents = Math.round(Number(tariff.monthlyBase) * 100);
+        qualificationCategory = tariff.qualificationCategory;
+        educationLevel = tariff.educationLevel;
       }
 
-      const classHeadAllowanceCents = Math.round(x.classHeadAllowance * 100);
-      const notebookCheckingAllowanceCents = Math.round(x.notebookCheckingAllowance * 100);
-      const methodicalAssociationHeadAllowanceCents = Math.round(x.methodicalAssociationHeadAllowance * 100);
-      const otherAllowancesCents = Math.round((x.otherAllowances + x.allowances) * 100);
-      const incomeTaxDeductionCents = Math.round(x.incomeTaxDeduction * 100);
-      const partyDuesDeductionCents = Math.round(x.partyDuesDeduction * 100);
-      const tradeUnionDuesDeductionCents = Math.round(x.tradeUnionDuesDeduction * 100);
-      const newspaperDeductionCents = Math.round(x.newspaperDeduction * 100);
-      const otherDeductionsCents = Math.round((x.otherDeductions + x.deductions) * 100);
+      let classHeadAllowanceCents = Math.round(x.classHeadAllowance * 100);
+      let notebookCheckingAllowanceCents = Math.round(x.notebookCheckingAllowance * 100);
+      let methodicalAssociationHeadAllowanceCents = Math.round(x.methodicalAssociationHeadAllowance * 100);
+      let otherAllowancesCents = Math.round((x.otherAllowances + x.allowances) * 100);
+      let incomeTaxDeductionCents = Math.round(x.incomeTaxDeduction * 100);
+      let partyDuesDeductionCents = Math.round(x.partyDuesDeduction * 100);
+      let tradeUnionDuesDeductionCents = Math.round(x.tradeUnionDuesDeduction * 100);
+      let newspaperDeductionCents = Math.round(x.newspaperDeduction * 100);
+      let otherDeductionsCents = Math.round((x.otherDeductions + x.deductions) * 100);
+      // Қоидаҳои марказӣ танҳо агар тамоми моҳи ҳисоботӣ дар давраи амали онҳо бошад, истифода мешаванд.
+      const monthStart = new Date(Date.UTC(payrollYear, payrollMonthNumber - 1, 1));
+      const monthEnd = new Date(Date.UTC(payrollYear, payrollMonthNumber, 0));
+      const financeRules = await trx.selectFrom("financeRules").selectAll()
+        .where("isActive", "=", true)
+        .where("effectiveFrom", "<=", monthStart)
+        .execute();
+      const applicableRules = (financeRules as unknown as FinanceRuleInput[]).filter((rule) =>
+        (!rule.effectiveTo || new Date(rule.effectiveTo).getTime() >= monthEnd.getTime())
+        && matchesFinanceRule(rule, {
+          institutionType: institution.institutionType,
+          positionTitle: staff.positionTitle,
+          qualificationCategory,
+          educationLevel,
+        })
+        && getFinanceRuleTarget(rule) !== null
+      );
+      const ruleSnapshots: Array<Record<string, unknown>> = [];
+      let weeklyHours = Number(x.weeklyHours);
+      const buildContext = () => {
+        const currentAllowances = classHeadAllowanceCents + notebookCheckingAllowanceCents
+          + methodicalAssociationHeadAllowanceCents + otherAllowancesCents;
+        return {
+          baseAmount: baseAmountCents / 100,
+          grossAmount: (baseAmountCents + currentAllowances) / 100,
+          allowances: currentAllowances / 100,
+          weeklyHours,
+          workRate: Number(x.workRate),
+          workingDays: x.workingDays,
+        };
+      };
+      const applyTarget = (target: FinanceRuleTarget, setter: (amountCents: number) => void) => {
+        const selected = applicableRules.filter((rule) => getFinanceRuleTarget(rule) === target);
+        if (!selected.length) return;
+        const calculated = aggregateFinanceRuleValues(selected, buildContext());
+        const amount = calculated.totals[target];
+        if (amount === undefined || !Number.isFinite(amount) || amount < 0 || amount > 1000000) {
+          throw new Error("FINANCE_RULE_RESULT_INVALID");
+        }
+        setter(Math.round(amount * 100));
+        ruleSnapshots.push(...calculated.snapshots);
+      };
+
+      applyTarget("baseAmount", (amount) => { baseAmountCents = amount; });
+      applyTarget("weeklyHours", (amount) => { weeklyHours = amount / 100; });
+      applyTarget("classHeadAllowance", (amount) => { classHeadAllowanceCents = amount; });
+      applyTarget("notebookCheckingAllowance", (amount) => { notebookCheckingAllowanceCents = amount; });
+      applyTarget("methodicalAssociationHeadAllowance", (amount) => { methodicalAssociationHeadAllowanceCents = amount; });
+      applyTarget("otherAllowances", (amount) => { otherAllowancesCents = amount; });
+      applyTarget("incomeTaxDeduction", (amount) => { incomeTaxDeductionCents = amount; });
+      applyTarget("partyDuesDeduction", (amount) => { partyDuesDeductionCents = amount; });
+      applyTarget("tradeUnionDuesDeduction", (amount) => { tradeUnionDuesDeductionCents = amount; });
+      applyTarget("newspaperDeduction", (amount) => { newspaperDeductionCents = amount; });
+      applyTarget("otherDeductions", (amount) => { otherDeductionsCents = amount; });
+
       const allowancesCents = classHeadAllowanceCents + notebookCheckingAllowanceCents + methodicalAssociationHeadAllowanceCents + otherAllowancesCents;
       const deductionsCents = incomeTaxDeductionCents + partyDuesDeductionCents + tradeUnionDuesDeductionCents + newspaperDeductionCents + otherDeductionsCents;
       const grossAmountCents = baseAmountCents + allowancesCents;
@@ -99,7 +161,8 @@ export async function handle(request: Request) {
       const netAmount = (grossAmountCents - deductionsCents) / 100;
       return trx.insertInto("institutionPayrollEntries").values({
         institutionId: x.institutionId, staffId: x.staffId, payrollMonth: new Date(`${x.payrollMonth}-01T00:00:00.000Z`),
-        tariffId: x.tariffId || null, baseAmount, allowances, grossAmount, workRate: x.workRate, weeklyHours: x.weeklyHours, workingDays: x.workingDays,
+        tariffId: x.tariffId || null, baseAmount, allowances, grossAmount, workRate: x.workRate, weeklyHours, workingDays: x.workingDays,
+        financeRuleSnapshot: ruleSnapshots,
         classHeadAllowance: classHeadAllowanceCents / 100,
         notebookCheckingAllowance: notebookCheckingAllowanceCents / 100,
         methodicalAssociationHeadAllowance: methodicalAssociationHeadAllowanceCents / 100,
@@ -127,6 +190,7 @@ export async function handle(request: Request) {
       "TARIFF_YEAR_MISMATCH",
       "DEDUCTIONS_EXCEED_GROSS",
       "WORKING_DAYS_EXCEED_MONTH",
+      "FINANCE_RULE_RESULT_INVALID",
     ]);
     const message = error instanceof z.ZodError ? "Маълумоти табели маош нодуруст аст."
       : code === "PLAN_LIMIT_REACHED" ? "Ҳадди 5 амалиёти ройгони табели маош истифода шуд. Барои идома ба нақшаи PRO гузаред."
@@ -138,6 +202,7 @@ export async function handle(request: Request) {
       : code === "TARIFF_NOT_EFFECTIVE" ? "Тарифи интихобшуда дар моҳи ҳисоботӣ амал намекунад."
       : code === "DEDUCTIONS_EXCEED_GROSS" ? "Нигоҳдоштиҳо аз маблағи ҳисобшуда зиёд буда наметавонанд."
       : code === "WORKING_DAYS_EXCEED_MONTH" ? "Шумораи рӯзҳои корӣ аз шумораи рӯзҳои моҳи интихобшуда зиёд буда наметавонад."
+      : code === "FINANCE_RULE_RESULT_INVALID" ? "Натиҷаи қоидаи марказии молиявӣ нодуруст аст. Қоидаҳоро дар панели маъмур санҷед."
       : isDuplicatePayroll ? "Барои ин корманд дар моҳи интихобшуда табели маош аллакай сабт шудааст."
       : "Ҳангоми сабти табели маош хатои дохилӣ рух дод. Лутфан баъдтар такрор кунед.";
     const isAuthError = (error as { name?: string })?.name === "NotAuthenticatedError";
@@ -148,6 +213,7 @@ export async function handle(request: Request) {
       "TARIFF_YEAR_MISMATCH",
       "DEDUCTIONS_EXCEED_GROSS",
       "WORKING_DAYS_EXCEED_MONTH",
+      "FINANCE_RULE_RESULT_INVALID",
     ].includes(code);
     const status = isAuthError ? 401
       : code === "PLAN_LIMIT_REACHED" ? 402

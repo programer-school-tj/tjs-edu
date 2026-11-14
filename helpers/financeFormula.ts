@@ -187,3 +187,11 @@ export function evaluateFinanceFormula(formula: string, readCell: FormulaCellRea
   if (!Number.isFinite(value)) throw new Error("Натиҷаи формула рақами дуруст нест.");
   return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
+
+export function applyPercentageAdjustment(amount: number, percentage: number): number {
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) throw new Error("Маблағи ибтидоӣ нодуруст аст.");
+  if (!Number.isFinite(percentage) || percentage <= -100 || percentage > 500) throw new Error("Фоизи тағйирот аз ҳудуди иҷозатшуда берун аст.");
+  const adjusted = Math.round((amount * (1 + percentage / 100) + Number.EPSILON) * 100) / 100;
+  if (!Number.isFinite(adjusted) || adjusted <= 0 || adjusted > 1000000) throw new Error("Маблағи нав аз ҳудуди иҷозатшуда берун мебарояд.");
+  return adjusted;
+}

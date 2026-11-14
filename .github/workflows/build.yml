@@ -22,6 +22,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Finance template mapping tests
+        run: npm test
       - name: TypeScript check
         run: npm run typecheck
       - name: Build production app

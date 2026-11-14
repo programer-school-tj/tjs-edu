@@ -96,6 +96,21 @@ export async function handle(request: Request) {
         }).returning(["id", "staffId", "positionTitle", "monthlyBase", "effectiveFrom", "effectiveTo"]).executeTakeFirstOrThrow();
         changed.push(created);
       }
+      await trx.insertInto("institutionAuditLogs").values({
+        action: "tariff.bulk_adjusted",
+        actorUserId: user.id,
+        details: {
+          adjustmentPercent: input.adjustmentPercent,
+          effectiveFrom: input.effectiveFrom,
+          academicYear: input.academicYear,
+          positionTitle: input.positionTitle || null,
+          sourceTitle: input.sourceTitle,
+          changedCount: changed.length,
+        },
+        entityId: null,
+        entityType: "tariff_adjustment",
+        institutionId: input.institutionId,
+      }).execute();
       return { changed, count: changed.length };
     });
 

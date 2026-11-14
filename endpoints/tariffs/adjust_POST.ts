@@ -107,8 +107,9 @@ export async function handle(request: Request) {
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     const authError = (error as { name?: string })?.name === "NotAuthenticatedError";
-    const validationError = error instanceof z.ZodError;
-    const message = validationError ? (error.issues[0]?.message || "Маълумоти тағйирот нодуруст аст.")
+    const validationIssues = error instanceof z.ZodError ? error.issues : [];
+    const validationError = validationIssues.length > 0;
+    const message = validationError ? (validationIssues[0]?.message || "Маълумоти тағйирот нодуруст аст.")
       : code === "NO_ACTIVE_TARIFFS" ? "Дар санаи интихобшуда тарифи амалкунанда ёфт нашуд."
       : code === "TARIFF_VERSION_ALREADY_EXISTS" ? "Барои санаи интихобшуда аллакай версияи тариф мавҷуд аст."
       : code === "ADJUSTED_AMOUNT_OUT_OF_RANGE" ? "Маблағи нави тариф аз ҳудуди иҷозатшуда берун мебарояд."

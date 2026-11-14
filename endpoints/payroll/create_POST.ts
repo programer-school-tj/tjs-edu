@@ -140,6 +140,7 @@ export async function handle(request: Request) {
 
       applyTarget("baseAmount", (amount) => { baseAmountCents = amount; });
       applyTarget("weeklyHours", (amount) => { weeklyHours = amount / 100; });
+      if (weeklyHours < 0 || weeklyHours > 60) throw new Error("FINANCE_RULE_RESULT_INVALID");
       applyTarget("classHeadAllowance", (amount) => { classHeadAllowanceCents = amount; });
       applyTarget("notebookCheckingAllowance", (amount) => { notebookCheckingAllowanceCents = amount; });
       applyTarget("methodicalAssociationHeadAllowance", (amount) => { methodicalAssociationHeadAllowanceCents = amount; });

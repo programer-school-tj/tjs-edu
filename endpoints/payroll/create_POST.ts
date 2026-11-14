@@ -4,6 +4,7 @@ import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
 import { aggregateFinanceRuleValues, getFinanceRuleTarget, matchesFinanceRule, type FinanceRuleInput, type FinanceRuleTarget } from "../../helpers/financeRuleCalculation";
+import type { JsonArray } from "../../helpers/schema";
 
 const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-7;
 
@@ -163,7 +164,7 @@ export async function handle(request: Request) {
       return trx.insertInto("institutionPayrollEntries").values({
         institutionId: x.institutionId, staffId: x.staffId, payrollMonth: new Date(`${x.payrollMonth}-01T00:00:00.000Z`),
         tariffId: x.tariffId || null, baseAmount, allowances, grossAmount, workRate: x.workRate, weeklyHours, workingDays: x.workingDays,
-        financeRuleSnapshot: ruleSnapshots,
+        financeRuleSnapshot: ruleSnapshots as unknown as JsonArray,
         classHeadAllowance: classHeadAllowanceCents / 100,
         notebookCheckingAllowance: notebookCheckingAllowanceCents / 100,
         methodicalAssociationHeadAllowance: methodicalAssociationHeadAllowanceCents / 100,

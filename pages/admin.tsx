@@ -127,7 +127,7 @@ export default function AdminPage() {
         <label>Вазифа (ихтиёрӣ)<input value={ruleForm.positionTitle} onChange={e => setRuleForm(v => ({...v,positionTitle:e.target.value}))} placeholder="Омӯзгор"/></label>
         <label>Категорияи тахассусӣ (ихтиёрӣ)<input value={ruleForm.qualificationCategory} onChange={e => setRuleForm(v => ({...v,qualificationCategory:e.target.value}))} placeholder="олӣ"/></label>
         <label>Маълумоти таҳсилот (ихтиёрӣ)<input value={ruleForm.educationLevel} onChange={e => setRuleForm(v => ({...v,educationLevel:e.target.value}))} placeholder="олӣ"/></label>
-        <label>Аз кадом сана амал мекунад<input required type="date" value={ruleForm.effectiveFrom} onChange={e => setRuleForm(v => ({...v,effectiveFrom:e.target.value}))}/></label>
+        <small style={{gridColumn:"1 / -1"}}>Фоиз барои маоши асосӣ ва соатҳои ҳафтаина ҳамчун зиёд/камшавӣ ҳисоб мешавад. Барои иловапулиҳо ва нигоҳдоштҳо фоизи маблағи интихобшуда ҳисоб карда мешавад.</small>\n        <label>Аз кадом сана амал мекунад<input required type="date" value={ruleForm.effectiveFrom} onChange={e => setRuleForm(v => ({...v,effectiveFrom:e.target.value}))}/></label>
         <label>Асоси ҳуқуқӣ / қарор<input required value={ruleForm.sourceTitle} onChange={e => setRuleForm(v => ({...v,sourceTitle:e.target.value}))} placeholder="Қарори Ҳукумати ҶТ ..."/></label>
         <label>Рақам ё пайванди ҳуҷҷат<input value={ruleForm.sourceReference} onChange={e => setRuleForm(v => ({...v,sourceReference:e.target.value}))}/></label>
         <label style={{ gridColumn: "1 / -1" }}>Шарҳ<textarea value={ruleForm.notes} onChange={e => setRuleForm(v => ({...v,notes:e.target.value}))}/></label>

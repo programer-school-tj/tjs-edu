@@ -35,7 +35,7 @@ export async function handle(request: Request) {
     }
 
     const result = await withPlanQuota(x.institutionId, "timetable", async (trx) => {
-      const [classes, staff, existing, availability, settings] = await Promise.all([
+      const [classes, staff, existing, availability, settings, teachingLoads] = await Promise.all([
         trx.selectFrom("institutionClasses").select(["id", "grade", "section"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaff").select(["id", "fullName", "workloadHours"])
@@ -46,6 +46,8 @@ export async function handle(request: Request) {
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionTimetableSettings").selectAll()
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst(),
+        trx.selectFrom("institutionTeachingLoads").select(["classId", "staffId", "subject", "weeklyHours"])
+          .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
       ]);
       const schoolDays = Number(settings?.schoolDays ?? 6);
       const maxLessons = Number(settings?.maxLessonsPerDay ?? 6);
@@ -71,6 +73,13 @@ export async function handle(request: Request) {
       const occupiedRooms = new Set(existing.filter((row) => row.room?.trim()).map((row) => `${row.room!.trim().toLocaleLowerCase()}:${row.weekday}:${row.lessonNumber}`));
       const newRows: Array<{ institutionId: string; classId: string; staffId: string; subject: string; shiftNumber: number; weekday: number; lessonNumber: number; room: string | null; academicYear: string; createdBy: number }> = [];
       const importedHours = new Map<string, number>();
+      const loadKey = (classId: string, staffId: string, subject: string) => `${classId}:${staffId}:${subject.trim().toLocaleLowerCase()}`;
+      const loadCapacity = new Map(teachingLoads.map((load) => [loadKey(load.classId, load.staffId, load.subject), Number(load.weeklyHours)]));
+      const scheduledByLoad = new Map<string, number>();
+      for (const row of existing) {
+        const key = loadKey(row.classId, row.staffId, row.subject);
+        scheduledByLoad.set(key, (scheduledByLoad.get(key) || 0) + 1);
+      }
 
       for (let index = 0; index < x.rows.length; index++) {
         const row = x.rows[index];
@@ -78,6 +87,12 @@ export async function handle(request: Request) {
         const teacher = staffMap.get(row.teacherName.trim().toLocaleLowerCase());
         if (!cls) throw new Error(`ROW_${index + 2}_CLASS_NOT_FOUND`);
         if (!teacher) throw new Error(`ROW_${index + 2}_TEACHER_NOT_FOUND`);
+        const subjectLoadKey = loadKey(cls.id, teacher.id, row.subject);
+        const approvedSubjectHours = loadCapacity.get(subjectLoadKey);
+        if (approvedSubjectHours === undefined) throw new Error(`ROW_${index + 2}_TEACHING_LOAD_NOT_FOUND`);
+        const subjectHoursUsed = scheduledByLoad.get(subjectLoadKey) || 0;
+        if (subjectHoursUsed >= approvedSubjectHours) throw new Error(`ROW_${index + 2}_TEACHING_LOAD_EXCEEDED`);
+        scheduledByLoad.set(subjectLoadKey, subjectHoursUsed + 1);
         if (row.weekday > schoolDays || row.lessonNumber > maxLessons) throw new Error(`ROW_${index + 2}_SLOT_OUTSIDE_SETTINGS`);
         const shiftNumber = Number(cls.grade) <= shiftSplitGrade ? 2 : 1;
         const teacherUnavailable = availability.some((slot) => slot.staffId === teacher.id && slot.weekday === row.weekday && (slot.lessonNumber === 0 || slot.lessonNumber === row.lessonNumber));
@@ -119,10 +134,12 @@ export async function handle(request: Request) {
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
-    const rowMatch = /^ROW_(\d+)_(CLASS_NOT_FOUND|TEACHER_NOT_FOUND|CONFLICT|TEACHER_UNAVAILABLE|TEACHER_DAILY_LIMIT|CLASS_DAILY_LIMIT|SLOT_OUTSIDE_SETTINGS)$/.exec(code);
+    const rowMatch = /^ROW_(\d+)_(CLASS_NOT_FOUND|TEACHER_NOT_FOUND|TEACHING_LOAD_NOT_FOUND|TEACHING_LOAD_EXCEEDED|CONFLICT|TEACHER_UNAVAILABLE|TEACHER_DAILY_LIMIT|CLASS_DAILY_LIMIT|SLOT_OUTSIDE_SETTINGS)$/.exec(code);
     const message = error instanceof z.ZodError ? "Файли Excel ё маълумоти он нодуруст аст."
       : rowMatch?.[2] === "CLASS_NOT_FOUND" ? `Синфи сатри ${rowMatch[1]} дар муассиса ёфт нашуд.`
       : rowMatch?.[2] === "TEACHER_NOT_FOUND" ? `Омӯзгори сатри ${rowMatch[1]} дар рӯйхати кормандон ёфт нашуд.`
+      : rowMatch?.[2] === "TEACHING_LOAD_NOT_FOUND" ? `Барои фанни сатри ${rowMatch[1]} сарбории тасдиқшуда ёфт нашуд.`
+      : rowMatch?.[2] === "TEACHING_LOAD_EXCEEDED" ? `Соатҳои фанни сатри ${rowMatch[1]} аз сарбории ҳафтаина зиёд мешаванд.`
       : rowMatch?.[2] === "CONFLICT" ? `Дар сатри ${rowMatch[1]} ихтилофи вақт вуҷуд дорад. Ҷадвал ворид нашуд.`
       : rowMatch?.[2] === "TEACHER_UNAVAILABLE" ? `Омӯзгори сатри ${rowMatch[1]} дар ин рӯз ё соат дастрас нест. Ҷадвал ворид нашуд.`
       : rowMatch?.[2] === "TEACHER_DAILY_LIMIT" ? `Дар сатри ${rowMatch[1]} омӯзгор аз меъёри рӯзонаи интихобшуда зиёд дарс дорад. Ҷадвал ворид нашуд.`
@@ -133,7 +150,8 @@ export async function handle(request: Request) {
       : "Ворид кардани ҷадвал иҷро нашуд.";
     const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401
       : code === "PLAN_LIMIT_REACHED" ? 402
-      : rowMatch?.[2] === "CLASS_NOT_FOUND" || rowMatch?.[2] === "TEACHER_NOT_FOUND" ? 404
+      : rowMatch?.[2] === "CLASS_NOT_FOUND" || rowMatch?.[2] === "TEACHER_NOT_FOUND" || rowMatch?.[2] === "TEACHING_LOAD_NOT_FOUND" ? 404
+      : rowMatch?.[2] === "TEACHING_LOAD_EXCEEDED" ? 422
       : rowMatch?.[2] === "CONFLICT" || rowMatch?.[2] === "TEACHER_UNAVAILABLE" || rowMatch?.[2] === "TEACHER_DAILY_LIMIT" || rowMatch?.[2] === "CLASS_DAILY_LIMIT" || rowMatch?.[2] === "SLOT_OUTSIDE_SETTINGS" ? 409
       : code === "IMPORT_WORKLOAD_EXCEEDED" ? 422
       : error instanceof z.ZodError ? 400 : 500;

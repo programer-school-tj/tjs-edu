@@ -21,7 +21,7 @@ export default function AdminPage() {
   const [rulesLoading, setRulesLoading] = useState(false);
   const [ruleBusy, setRuleBusy] = useState(false);
   const [ruleError, setRuleError] = useState("");
-  const [ruleForm, setRuleForm] = useState({ ruleKey: "", title: "", category: "deduction", calculationType: "percentage", numericValue: "", formula: "", target: "incomeTaxDeduction", base: "grossAmount", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
+  const [ruleForm, setRuleForm] = useState({ ruleKey: "", title: "", category: "deduction", calculationType: "percentage", numericValue: "", formula: "", target: "incomeTaxDeduction", base: "grossAmount", institutionType: "", positionTitle: "", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
 
   const load = async () => {
     setLoading(true); setError("");
@@ -79,7 +79,7 @@ export default function AdminPage() {
         formula: ruleForm.calculationType === "formula" ? ruleForm.formula : undefined,
         sourceReference: ruleForm.sourceReference || undefined,
         notes: ruleForm.notes || undefined,
-        appliesTo: { target: ruleForm.target, base: ruleForm.base },
+        appliesTo: { target: ruleForm.target, base: ruleForm.base, ...(ruleForm.institutionType ? { institutionType: ruleForm.institutionType } : {}), ...(ruleForm.positionTitle.trim() ? { positionTitle: ruleForm.positionTitle.trim() } : {}) },
       };
       const response = await fetch("/_api/finance-rules/save", {
         method: "POST", credentials: "include",
@@ -88,7 +88,7 @@ export default function AdminPage() {
       });
       const data = superjson.parse<{ message?: string }>(await response.text());
       if (!response.ok) throw new Error(data.message || "Қоида сабт нашуд.");
-      setRuleForm({ ruleKey: "", title: "", category: "deduction", calculationType: "percentage", numericValue: "", formula: "", target: "incomeTaxDeduction", base: "grossAmount", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
+      setRuleForm({ ruleKey: "", title: "", category: "deduction", calculationType: "percentage", numericValue: "", formula: "", target: "incomeTaxDeduction", base: "grossAmount", institutionType: "", positionTitle: "", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
       await loadRules();
     } catch (e) { setRuleError(e instanceof Error ? e.message : "Қоида сабт нашуд."); }
     finally { setRuleBusy(false); }
@@ -123,6 +123,8 @@ export default function AdminPage() {
         {ruleForm.calculationType === "formula"
           ? <label style={{ gridColumn: "1 / -1" }}>Формула<input required value={ruleForm.formula} onChange={e => setRuleForm(v => ({...v,formula:e.target.value}))} placeholder="=ROUND(A2*0.13,2)"/><small style={{gridColumn:"1 / -1"}}>Дар формула: A1 маоши асосӣ, A2 маоши умумӣ, A3 соатҳои ҳафтаина, A4 меъёри корӣ, A5 иловапулиҳо, A6 рӯзҳои корӣ.</small></label>
           : <label>{ruleForm.calculationType === "percentage" ? "Фоиз (%)" : "Маблағ (сомонӣ)"}<input required type="number" step="0.0001" value={ruleForm.numericValue} onChange={e => setRuleForm(v => ({...v,numericValue:e.target.value}))}/></label>}
+        <label>Навъи муассиса (ихтиёрӣ)<select value={ruleForm.institutionType} onChange={e => setRuleForm(v => ({...v,institutionType:e.target.value}))}><option value="">Ҳамаи муассисаҳо</option><option value="school">Мактаб</option><option value="college">Коллеҷ</option><option value="university">Донишгоҳ</option><option value="lyceum">Литсей</option><option value="gymnasium">Гимназия</option></select></label>
+        <label>Вазифа (ихтиёрӣ)<input value={ruleForm.positionTitle} onChange={e => setRuleForm(v => ({...v,positionTitle:e.target.value}))} placeholder="Омӯзгор"/></label>
         <label>Аз кадом сана амал мекунад<input required type="date" value={ruleForm.effectiveFrom} onChange={e => setRuleForm(v => ({...v,effectiveFrom:e.target.value}))}/></label>
         <label>Асоси ҳуқуқӣ / қарор<input required value={ruleForm.sourceTitle} onChange={e => setRuleForm(v => ({...v,sourceTitle:e.target.value}))} placeholder="Қарори Ҳукумати ҶТ ..."/></label>
         <label>Рақам ё пайванди ҳуҷҷат<input value={ruleForm.sourceReference} onChange={e => setRuleForm(v => ({...v,sourceReference:e.target.value}))}/></label>

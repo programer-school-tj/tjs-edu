@@ -71,6 +71,7 @@ export default function PayrollPage() {
     : matchingTariffs;
   const allowanceTotal = Number(f.classHeadAllowance || 0) + Number(f.notebookCheckingAllowance || 0) + Number(f.methodicalAssociationHeadAllowance || 0) + Number(f.otherAllowances || 0);
   const gross = Number(f.baseAmount || 0) + allowanceTotal;
+  const deductionTotal = Number(f.incomeTaxDeduction || 0) + Number(f.partyDuesDeduction || 0) + Number(f.tradeUnionDuesDeduction || 0) + Number(f.newspaperDeduction || 0) + Number(f.otherDeductions || 0);
   const net = gross - deductionTotal;
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setErr("");

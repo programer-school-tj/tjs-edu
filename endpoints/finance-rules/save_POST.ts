@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { z } from "zod";
 import superjson from "superjson";
 import { evaluateFinanceFormula } from "../../helpers/financeFormula";
+import type { JsonObject } from "../../helpers/schema";
 
 const schema = z.object({
   ruleKey: z.string().trim().min(2).max(80).regex(/^[a-zA-Z0-9_.-]+$/),
@@ -11,7 +12,7 @@ const schema = z.object({
   calculationType: z.enum(["fixed", "percentage", "formula"]),
   numericValue: z.number().min(-1000000).max(1000000000).optional(),
   formula: z.string().trim().max(500).optional(),
-  appliesTo: z.record(z.string(), z.unknown()).default({}),
+  appliesTo: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).default({}),
   effectiveFrom: z.string().date(),
   sourceTitle: z.string().trim().min(3).max(240),
   sourceReference: z.string().max(500).optional(),
@@ -77,7 +78,7 @@ export async function handle(request: Request) {
         calculationType: input.calculationType,
         numericValue: input.numericValue ?? null,
         formula: input.formula ?? null,
-        appliesTo: input.appliesTo,
+        appliesTo: input.appliesTo as JsonObject,
         effectiveFrom,
         effectiveTo: null,
         sourceTitle: input.sourceTitle,

@@ -11,6 +11,7 @@ export type FinanceTemplateTariff = {
   educationLevel?: string | null;
   qualificationCategory?: string | null;
   monthlyBase: number | string;
+  weeklyHours?: number | string | null;
   academicYear: string;
   effectiveFrom: string | Date;
   effectiveTo?: string | Date | null;
@@ -19,6 +20,10 @@ export type FinanceTemplateTariff = {
 export type FinanceTemplatePayrollEntry = {
   staffId: string;
   baseAmount: number | string;
+  workingDays?: number | string | null;
+  classHeadAllowance?: number | string | null;
+  notebookCheckingAllowance?: number | string | null;
+  methodicalAssociationHeadAllowance?: number | string | null;
 };
 
 function normalized(value: unknown) {
@@ -88,12 +93,21 @@ export function buildPayrollTemplateCells(
     const row = 5 + index * 2;
     const tariff = findTariff(person, tariffs, academicYear, monthDate, monthEnd);
     const payroll = payrollEntries.find((entry) => entry.staffId === person.id);
+    addCell(cells, "A", row, index + 1);
     addCell(cells, "B", row, person.fullName);
     addCell(cells, "C", row, person.positionTitle);
     addCell(cells, "D", row, tariff?.educationLevel);
     addCell(cells, "E", row, tariff?.qualificationCategory);
     addCell(cells, "F", row, person.subject);
     addCell(cells, "G", row, payroll?.baseAmount ?? tariff?.monthlyBase);
+
+    // Танҳо сутунҳое пур мешаванд, ки маънояшон дар бланки аслӣ равшан аст.
+    // H–J барои соатҳои тарификатсия ва K–M барои соатҳои ивазшуда
+    // маълумоти ҷудогонаи гурӯҳҳои синфиро талаб мекунанд.
+    addCell(cells, "Q", row, payroll?.notebookCheckingAllowance);
+    addCell(cells, "R", row, payroll?.classHeadAllowance);
+    addCell(cells, "S", row, payroll?.methodicalAssociationHeadAllowance);
+    addCell(cells, "W", row, payroll?.workingDays);
   });
   return cells;
 }

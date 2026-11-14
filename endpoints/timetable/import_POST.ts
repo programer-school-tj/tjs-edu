@@ -40,7 +40,7 @@ export async function handle(request: Request) {
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaff").select(["id", "fullName", "workloadHours"])
           .where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
-        trx.selectFrom("institutionTimetableEntries").select(["classId", "staffId", "weekday", "lessonNumber", "shiftNumber", "room"])
+        trx.selectFrom("institutionTimetableEntries").select(["classId", "staffId", "subject", "weekday", "lessonNumber", "shiftNumber", "room"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "lessonNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),

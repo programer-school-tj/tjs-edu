@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateFinanceFormula } from "../helpers/financeFormula";
+import { applyPercentageAdjustment, evaluateFinanceFormula } from "../helpers/financeFormula";
 
 const cells: Record<string, number | string> = {
   A1: 2000, A2: 18, B1: 25, B2: 100, C1: 150, C2: 250,
@@ -32,4 +32,12 @@ test("rejects unsupported code, divide-by-zero and invalid formulas", () => {
   assert.throws(() => evaluateFinanceFormula("=alert(1)", read));
   assert.throws(() => evaluateFinanceFormula("=A1+unknown", read));
   assert.throws(() => evaluateFinanceFormula("=A1+", read));
+});
+
+test("applies dated salary percentage changes with two-decimal rounding", () => {
+  assert.equal(applyPercentageAdjustment(2000, 25), 2500);
+  assert.equal(applyPercentageAdjustment(2384, 25), 2980);
+  assert.equal(applyPercentageAdjustment(2000, -10), 1800);
+  assert.throws(() => applyPercentageAdjustment(2000, -100));
+  assert.throws(() => applyPercentageAdjustment(1000000, 500));
 });

@@ -115,9 +115,13 @@ export async function handle(request: Request) {
       );
       const ruleSnapshots: Array<Record<string, unknown>> = [];
       let weeklyHours = Number(x.weeklyHours);
-      const buildContext = () => {
+      const buildContext = (excludeTarget?: FinanceRuleTarget) => {
         const currentAllowances = classHeadAllowanceCents + notebookCheckingAllowanceCents
-          + methodicalAssociationHeadAllowanceCents + otherAllowancesCents;
+          + methodicalAssociationHeadAllowanceCents + otherAllowancesCents
+          - (excludeTarget === "classHeadAllowance" ? classHeadAllowanceCents : 0)
+          - (excludeTarget === "notebookCheckingAllowance" ? notebookCheckingAllowanceCents : 0)
+          - (excludeTarget === "methodicalAssociationHeadAllowance" ? methodicalAssociationHeadAllowanceCents : 0)
+          - (excludeTarget === "otherAllowances" ? otherAllowancesCents : 0);
         return {
           baseAmount: baseAmountCents / 100,
           grossAmount: (baseAmountCents + currentAllowances) / 100,
@@ -130,7 +134,7 @@ export async function handle(request: Request) {
       const applyTarget = (target: FinanceRuleTarget, setter: (amountCents: number) => void) => {
         const selected = applicableRules.filter((rule) => getFinanceRuleTarget(rule) === target);
         if (!selected.length) return;
-        const calculated = aggregateFinanceRuleValues(selected, buildContext());
+        const calculated = aggregateFinanceRuleValues(selected, buildContext(target));
         const amount = calculated.totals[target];
         if (amount === undefined || !Number.isFinite(amount) || amount < 0 || amount > 1000000) {
           throw new Error("FINANCE_RULE_RESULT_INVALID");

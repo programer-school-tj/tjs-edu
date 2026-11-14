@@ -20,6 +20,7 @@ export type FinanceTemplateTariff = {
 export type FinanceTemplatePayrollEntry = {
   staffId: string;
   baseAmount: number | string;
+  grossAmount?: number | string | null;
   workingDays?: number | string | null;
   classHeadAllowance?: number | string | null;
   notebookCheckingAllowance?: number | string | null;
@@ -107,6 +108,7 @@ export function buildPayrollTemplateCells(
     addCell(cells, "Q", row, payroll?.notebookCheckingAllowance);
     addCell(cells, "R", row, payroll?.classHeadAllowance);
     addCell(cells, "S", row, payroll?.methodicalAssociationHeadAllowance);
+    addCell(cells, "V", row, payroll?.grossAmount);
     addCell(cells, "W", row, payroll?.workingDays);
   });
   return cells;

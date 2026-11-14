@@ -18,8 +18,9 @@ const schema = z.object({
   const [startYear, endYear] = value.academicYear.split("-").map(Number);
   return endYear === startYear + 1
     && value.effectiveFrom >= `${startYear}-09-01`
-    && value.effectiveFrom <= `${endYear}-08-31`;
-}, { path: ["effectiveFrom"], message: "Санаи тағйирот бояд дар ҳудуди соли таҳсилии интихобшуда бошад." })
+    && value.effectiveFrom <= `${endYear}-08-31`
+    && value.effectiveFrom.endsWith("-01");
+}, { path: ["effectiveFrom"], message: "Санаи тағйирот бояд рӯзи якуми моҳ ва дар ҳудуди соли таҳсил бошад, то маоши моҳона дуруст ҳисоб шавад." })
 .refine((value) => !(value.staffId && value.positionTitle), {
   message: "Ҳамзамон корманд ва вазифаро интихоб накунед.",
 });

@@ -71,6 +71,26 @@ export interface InstitutionClasses {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface FinanceRules {
+  appliesTo: Generated<Json>;
+  calculationType: string;
+  category: string;
+  createdAt: Generated<Timestamp>;
+  createdBy: number | null;
+  effectiveFrom: Timestamp;
+  effectiveTo: Timestamp | null;
+  formula: string | null;
+  id: Generated<string>;
+  isActive: Generated<boolean>;
+  notes: string | null;
+  numericValue: Numeric | null;
+  ruleKey: string;
+  sourceReference: string | null;
+  sourceTitle: string;
+  title: string;
+  updatedAt: Generated<Timestamp>;
+}
+
 export interface InstitutionFormDocuments {
   academicYear: Generated<string>;
   createdAt: Generated<Timestamp>;
@@ -317,6 +337,7 @@ export interface Users {
 }
 
 export interface DB {
+  financeRules: FinanceRules;
   institutionAttendance: InstitutionAttendance;
   institutionAuditLogs: InstitutionAuditLogs;
   institutionClasses: InstitutionClasses;

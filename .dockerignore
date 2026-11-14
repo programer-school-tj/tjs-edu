@@ -1,0 +1,14 @@
+# Keep local dependencies and build output out of the Docker image.
+node_modules
+dist
+coverage
+.git
+
+# Never bake local credentials or environment-specific configuration into an image.
+.env
+.env.*
+!.env.example
+
+# Local-only files.
+*.log
+.DS_Store

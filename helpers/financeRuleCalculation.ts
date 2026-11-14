@@ -76,7 +76,11 @@ export function calculateFinanceRuleValue(
   if (rule.calculationType === "fixed") {
     result = Number(rule.numericValue);
   } else if (rule.calculationType === "percentage") {
-    result = base * Number(rule.numericValue) / 100;
+    const percentage = Number(rule.numericValue);
+    const target = getFinanceRuleTarget(rule);
+    result = target === "baseAmount" || target === "weeklyHours"
+      ? base * (1 + percentage / 100)
+      : base * percentage / 100;
   } else if (rule.calculationType === "formula" && rule.formula) {
     const cells: Record<string, number> = {
       A1: context.baseAmount,

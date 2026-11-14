@@ -65,20 +65,19 @@ function recalculateFormulas(worksheet: ExcelJS.Worksheet) {
       if (isFormulaCell(cell)) formulaCells.push(cell);
     });
   });
-  // Several passes allow formulas to refer to formulas located later in the sheet.
-  for (let pass = 0; pass < Math.min(10, formulaCells.length + 1); pass++) {
-    for (const cell of formulaCells) {
-      const value = cell.value as any;
-      const formula = String(value?.formula || cell.formula || "");
-      if (!formula) continue;
-      const result = evaluateFinanceFormula(formula, (address) => {
-        const referenced = worksheet.getCell(address).value as any;
-        if (referenced && typeof referenced === "object" && "result" in referenced) return referenced.result;
-        return referenced;
-      });
-      cell.value = { formula, result } as ExcelJS.CellValue;
-    }
-  }
+  const evaluateCell = (address: string, visiting: Set<string>): unknown => {
+    const cell = worksheet.getCell(address);
+    const value = cell.value as any;
+    const formula = String(value?.formula || cell.formula || "");
+    if (!formula) return value && typeof value === "object" && "result" in value ? value.result : value;
+    if (visiting.has(address)) throw new Error("Формулаҳо ба ҳам даврӣ пайвастанд. Истиноди давриро ислоҳ кунед.");
+    const next = new Set(visiting);
+    next.add(address);
+    const result = evaluateFinanceFormula(formula, (reference) => evaluateCell(reference, next));
+    cell.value = { formula, result } as ExcelJS.CellValue;
+    return result;
+  };
+  for (const cell of formulaCells) evaluateCell(cell.address, new Set());
 }
 
 function setCellInput(worksheet: ExcelJS.Worksheet, address: string, input: string) {

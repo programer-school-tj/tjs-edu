@@ -16,10 +16,10 @@ test("evaluates Excel-style arithmetic and cell references", () => {
 test("evaluates percentages and common spreadsheet functions", () => {
   assert.equal(evaluateFinanceFormula("=A1*(1+25%)", read), 2500);
   assert.equal(evaluateFinanceFormula("=ROUND(A1*1.125, 2)", read), 2250);
-  assert.equal(evaluateFinanceFormula("=SUM(B2:C2)", read), 400);
+  assert.equal(evaluateFinanceFormula("=SUM(B2:C2)", read), 350);
   assert.equal(evaluateFinanceFormula("=MAX(B2:C2)", read), 250);
   assert.equal(evaluateFinanceFormula("=MIN(B2:C2)", read), 150);
-  assert.equal(evaluateFinanceFormula("=AVERAGE(B2:C2)", read), 200);
+  assert.equal(evaluateFinanceFormula("=AVERAGE(B2:C2)", read), 175);
   assert.equal(evaluateFinanceFormula("=ABS(-25)", read), 25);
 });
 

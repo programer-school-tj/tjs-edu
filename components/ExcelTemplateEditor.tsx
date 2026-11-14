@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ExcelJS from "exceljs";
+import { evaluateFinanceFormula } from "../helpers/financeFormula";
 import { getFormDocument, saveFormDocument } from "../helpers/financeScheduleClient";
 import styles from "./ExcelTemplateEditor.module.css";
 
@@ -55,6 +56,44 @@ function cellText(value: ExcelJS.CellValue): string {
 function isFormulaCell(cell: ExcelJS.Cell) {
   const value = cell.value as any;
   return Boolean(cell.formula || value?.sharedFormula);
+}
+
+function recalculateFormulas(worksheet: ExcelJS.Worksheet) {
+  const formulaCells: ExcelJS.Cell[] = [];
+  worksheet.eachRow({ includeEmpty: false }, (row) => {
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      if (isFormulaCell(cell)) formulaCells.push(cell);
+    });
+  });
+  // Several passes allow formulas to refer to formulas located later in the sheet.
+  for (let pass = 0; pass < Math.min(10, formulaCells.length + 1); pass++) {
+    for (const cell of formulaCells) {
+      const value = cell.value as any;
+      const formula = String(value?.formula || cell.formula || "");
+      if (!formula) continue;
+      const result = evaluateFinanceFormula(formula, (address) => {
+        const referenced = worksheet.getCell(address).value as any;
+        if (referenced && typeof referenced === "object" && "result" in referenced) return referenced.result;
+        return referenced;
+      });
+      cell.value = { formula, result } as ExcelJS.CellValue;
+    }
+  }
+}
+
+function setCellInput(worksheet: ExcelJS.Worksheet, address: string, input: string) {
+  const cell = worksheet.getCell(address);
+  if (input.trim().startsWith("=")) {
+    const formula = input.trim().slice(1);
+    const result = evaluateFinanceFormula(formula, (reference) => {
+      const value = worksheet.getCell(reference).value as any;
+      return value && typeof value === "object" && "result" in value ? value.result : value;
+    });
+    cell.value = { formula, result } as ExcelJS.CellValue;
+  } else {
+    cell.value = input;
+  }
+  recalculateFormulas(worksheet);
 }
 
 function excelColor(color: any): string | undefined {
@@ -163,13 +202,12 @@ export function ExcelTemplateEditor(props: Props) {
       Object.entries(cells).forEach(([address, value]) => {
         if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(address) || typeof value !== "string") return;
         const target = worksheet.getCell(address);
-        // Never replace an Excel formula with its cached display value.
-        if (!isFormulaCell(target)) target.value = value;
+        if (!isFormulaCell(target)) setCellInput(worksheet, address, value);
       });
       Object.entries(pendingEdits).forEach(([address, value]) => {
-        const target = worksheet.getCell(address);
-        if (!isFormulaCell(target)) target.value = value;
+        if (/^[A-Z]{1,3}[1-9][0-9]*$/.test(address)) setCellInput(worksheet, address, value);
       });
+      recalculateFormulas(worksheet);
       dirtyCellsRef.current = pendingEdits;
       documentKeyRef.current = documentKey;
       workbookRef.current = workbook;
@@ -190,11 +228,22 @@ export function ExcelTemplateEditor(props: Props) {
   }, [worksheet, props.maxRows, revision]);
 
   const updateCell = (address: string, value: string) => {
-    const cell = worksheetRef.current?.getCell(address);
-    if (!cell) return;
-    cell.value = value;
-    dirtyCellsRef.current[address] = value;
-    setDirty(true);
+    const worksheet = worksheetRef.current;
+    const cell = worksheet?.getCell(address);
+    if (!cell || !worksheet) return;
+    const previous = cell.value;
+    try {
+      setCellInput(worksheet, address, value);
+      dirtyCellsRef.current[address] = value;
+      setDirty(true);
+      setError("");
+      setRevision((current) => current + 1);
+    } catch (e) {
+      cell.value = previous;
+      try { recalculateFormulas(worksheet); } catch { /* Keep the prior valid workbook state. */ }
+      setError(e instanceof Error ? e.message : "Формула дуруст нест.");
+      setRevision((current) => current + 1);
+    }
   };
 
   const save = async () => {
@@ -238,7 +287,7 @@ export function ExcelTemplateEditor(props: Props) {
   return <section className={styles.editor}>
     <style>{`@page { size: A4 ${props.orientation || "landscape"}; margin: 6mm; } @media print { html, body { background: #fff !important; } body, body * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .${styles.sheetScroll} { zoom: ${props.printScale ?? 0.7}; overflow: visible !important; max-height: none !important; } .${styles.sheet} { border-collapse: collapse !important; } .${styles.sheet} tr, .${styles.sheet} td { break-inside: avoid; page-break-inside: avoid; } }`}</style>
     <div className={styles.toolbar}>
-      <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Маълумоти кормандон пешакӣ пур мешавад. Сабтҳои дастӣ нигоҳ дошта мешаванд; ҳуҷайраҳои қисми маълумотро таҳрир кунед.</p></div>
+      <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Маълумоти кормандон пешакӣ пур мешавад. Ҳуҷайраҳоро таҳрир кунед; барои формула бо = оғоз намоед, мисол: =J5*1.25 ё =ROUND(J5*1.25,2).</p></div>
       <div className={styles.actions}>
         <button type="button" className={styles.secondary} onClick={() => void load()} disabled={busy}>↻ Аз нав кушодан</button>
         <button type="button" onClick={() => void save()} disabled={busy || !ready}>{busy ? "Лаҳза..." : "Сабт"}</button>

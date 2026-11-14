@@ -21,7 +21,7 @@ export default function AdminPage() {
   const [rulesLoading, setRulesLoading] = useState(false);
   const [ruleBusy, setRuleBusy] = useState(false);
   const [ruleError, setRuleError] = useState("");
-  const [ruleForm, setRuleForm] = useState({ ruleKey: "", title: "", category: "other", calculationType: "percentage", numericValue: "", formula: "", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
+  const [ruleForm, setRuleForm] = useState({ ruleKey: "", title: "", category: "deduction", calculationType: "percentage", numericValue: "", formula: "", target: "incomeTaxDeduction", base: "grossAmount", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
 
   const load = async () => {
     setLoading(true); setError("");
@@ -79,7 +79,7 @@ export default function AdminPage() {
         formula: ruleForm.calculationType === "formula" ? ruleForm.formula : undefined,
         sourceReference: ruleForm.sourceReference || undefined,
         notes: ruleForm.notes || undefined,
-        appliesTo: {},
+        appliesTo: { target: ruleForm.target, base: ruleForm.base },
       };
       const response = await fetch("/_api/finance-rules/save", {
         method: "POST", credentials: "include",
@@ -88,7 +88,7 @@ export default function AdminPage() {
       });
       const data = superjson.parse<{ message?: string }>(await response.text());
       if (!response.ok) throw new Error(data.message || "Қоида сабт нашуд.");
-      setRuleForm({ ruleKey: "", title: "", category: "other", calculationType: "percentage", numericValue: "", formula: "", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
+      setRuleForm({ ruleKey: "", title: "", category: "deduction", calculationType: "percentage", numericValue: "", formula: "", target: "incomeTaxDeduction", base: "grossAmount", effectiveFrom: new Date().toISOString().slice(0, 10), sourceTitle: "", sourceReference: "", notes: "" });
       await loadRules();
     } catch (e) { setRuleError(e instanceof Error ? e.message : "Қоида сабт нашуд."); }
     finally { setRuleBusy(false); }
@@ -114,8 +114,14 @@ export default function AdminPage() {
         <label>Номи қоида<input required value={ruleForm.title} onChange={e => setRuleForm(v => ({...v,title:e.target.value}))} placeholder="Фоизи андоз"/></label>
         <label>Гурӯҳ<select value={ruleForm.category} onChange={e => setRuleForm(v => ({...v,category:e.target.value}))}><option value="base_salary">Маоши асосӣ</option><option value="allowance">Иловапулӣ</option><option value="deduction">Нигоҳдошт</option><option value="work_hours">Соатҳои корӣ</option><option value="other">Дигар</option></select></label>
         <label>Навъи ҳисоб<select value={ruleForm.calculationType} onChange={e => setRuleForm(v => ({...v,calculationType:e.target.value}))}><option value="percentage">Фоиз</option><option value="fixed">Маблағи собит</option><option value="formula">Формулаи Excel</option></select></label>
+        <label>Ба кадом қисми маош таъсир мекунад<select value={ruleForm.target} onChange={e => setRuleForm(v => ({...v,target:e.target.value}))}>
+          <option value="baseAmount">Маоши асосӣ</option><option value="classHeadAllowance">Иловапулии роҳбарии синф</option><option value="notebookCheckingAllowance">Иловапулии санҷиши дафтар</option><option value="methodicalAssociationHeadAllowance">Иловапулии роҳбари иттиҳодияи методӣ</option><option value="otherAllowances">Дигар иловапулиҳо</option><option value="incomeTaxDeduction">Андоз аз даромад</option><option value="partyDuesDeduction">Ҳаққи ҳизб</option><option value="tradeUnionDuesDeduction">Ҳаққи иттифоқи касаба</option><option value="newspaperDeduction">Обуна ба рӯзнома</option><option value="otherDeductions">Дигар нигоҳдоштҳо</option><option value="weeklyHours">Соатҳои ҳафтаина</option>
+        </select></label>
+        {ruleForm.calculationType !== "fixed" && <label>Аз кадом маблағ ҳисоб шавад<select value={ruleForm.base} onChange={e => setRuleForm(v => ({...v,base:e.target.value}))}>
+          <option value="baseAmount">Маоши асосӣ</option><option value="grossAmount">Маоши умумӣ (бо иловапулиҳо)</option><option value="allowances">Ҷамъи иловапулиҳо</option><option value="weeklyHours">Соатҳои ҳафтаина</option><option value="workRate">Меъёри корӣ</option><option value="workingDays">Рӯзҳои корӣ</option>
+        </select></label>}
         {ruleForm.calculationType === "formula"
-          ? <label style={{ gridColumn: "1 / -1" }}>Формула<input required value={ruleForm.formula} onChange={e => setRuleForm(v => ({...v,formula:e.target.value}))} placeholder="=ROUND(A1*0.13,2)"/></label>
+          ? <label style={{ gridColumn: "1 / -1" }}>Формула<input required value={ruleForm.formula} onChange={e => setRuleForm(v => ({...v,formula:e.target.value}))} placeholder="=ROUND(A2*0.13,2)"/><small style={{gridColumn:"1 / -1"}}>Дар формула: A1 маоши асосӣ, A2 маоши умумӣ, A3 соатҳои ҳафтаина, A4 меъёри корӣ, A5 иловапулиҳо, A6 рӯзҳои корӣ.</small></label>
           : <label>{ruleForm.calculationType === "percentage" ? "Фоиз (%)" : "Маблағ (сомонӣ)"}<input required type="number" step="0.0001" value={ruleForm.numericValue} onChange={e => setRuleForm(v => ({...v,numericValue:e.target.value}))}/></label>}
         <label>Аз кадом сана амал мекунад<input required type="date" value={ruleForm.effectiveFrom} onChange={e => setRuleForm(v => ({...v,effectiveFrom:e.target.value}))}/></label>
         <label>Асоси ҳуқуқӣ / қарор<input required value={ruleForm.sourceTitle} onChange={e => setRuleForm(v => ({...v,sourceTitle:e.target.value}))} placeholder="Қарори Ҳукумати ҶТ ..."/></label>
@@ -128,7 +134,7 @@ export default function AdminPage() {
         <div className={styles.itemTop}><div><h3>{rule.title}</h3><p>{rule.ruleKey} · {rule.category}</p></div><Badge variant={rule.effectiveTo ? "secondary" : "success"}>{rule.effectiveTo ? "Версияи гузашта" : "Версияи ҷорӣ"}</Badge></div>
         <div className={styles.details}><span><b>Қимат:</b> {rule.calculationType === "formula" ? rule.formula : rule.calculationType === "percentage" ? `${rule.numericValue}%` : `${rule.numericValue} сомонӣ`}</span><span><b>Аз:</b> {new Date(rule.effectiveFrom).toLocaleDateString("tg-TJ")}</span><span><b>То:</b> {rule.effectiveTo ? new Date(rule.effectiveTo).toLocaleDateString("tg-TJ") : "Ҳоло амал мекунад"}</span><span><b>Асос:</b> {rule.sourceTitle}</span></div>
       </article>)}</div>}
-      <p style={{ fontSize: 12, color: "#8a6500", marginTop: 14 }}>Муҳим: ин марҳила қоидаҳоро сабт ва версиябандӣ мекунад. Пайваст кардани ҳар қоида ба ҳисобкунии худкори табели маош марҳилаи навбатӣ аст. То тасдиқи санади расмӣ фоизҳои андоз ё дигар меъёрҳоро худсарона ворид накунед.</p>
+      <p style={{ fontSize: 12, color: "#8a6500", marginTop: 14 }}>Қоидаи фаъол ҳангоми сохтани табели нав ба қисми интихобшудаи маош татбиқ мешавад. Маблағи дастӣ воридшуда дар ҳамон майдон бо натиҷаи қоидаи марказӣ иваз мешавад. Қоида бояд санади расмӣ дошта бошад; фоизҳои андоз ё дигар меъёрҳоро худсарона ворид накунед.</p>
     </section>
     <footer className={styles.footerNote}>© 2026 TJS Edu · Муаллиф: Тоҷиддинов Сафармад</footer>
   </main>;

@@ -115,7 +115,7 @@ export async function handle(request: Request) {
           !classSlots.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
           !teacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
           !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-          !blockedTeacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+          !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
           (classDayCounts.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
           (teacherDayCounts.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))).length;
         scarcity.set(task, count);
@@ -137,7 +137,7 @@ export async function handle(request: Request) {
             !occupiedClass.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             !occupiedTeacher.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );
@@ -188,7 +188,7 @@ export async function handle(request: Request) {
             !occupiedClass.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             !occupiedTeacher.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );

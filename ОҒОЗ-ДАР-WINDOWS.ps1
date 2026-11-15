@@ -25,16 +25,19 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
-if (-not (Test-Path ".env")) {
+$envText = if (Test-Path ".env") { Get-Content ".env" -Raw } else { "" }
+$hasSessionSecret = $envText -match "(?m)^SESSION_SECRET=[A-Za-z0-9_-]{32,}$"
+$hasDatabasePassword = $envText -match "(?m)^POSTGRES_PASSWORD=[0-9a-f]{64}$"
+if (-not ($hasSessionSecret -and $hasDatabasePassword)) {
   $sessionSecret = New-RandomHex 48
   $databasePassword = New-RandomHex 32
   @"
 SESSION_SECRET=$sessionSecret
 POSTGRES_PASSWORD=$databasePassword
 "@ | Set-Content -Encoding ascii ".env"
-  Write-Host "Файли .env бо калидҳои алоҳидаи тасодуфӣ сохта шуд." -ForegroundColor Green
+  Write-Host "Файли .env бо калидҳои қавии алоҳида сохта/нав карда шуд." -ForegroundColor Green
 } else {
-  Write-Host "Файли .env мавҷуд аст. Он тағйир дода намешавад." -ForegroundColor Yellow
+  Write-Host "Калидҳои .env мавҷуданд ва нигоҳ дошта мешаванд." -ForegroundColor Green
 }
 
 Write-Host "Оғози PostgreSQL, иҷрои мигратсияҳо ва сохтани барнома..." -ForegroundColor Cyan

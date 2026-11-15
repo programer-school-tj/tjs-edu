@@ -7,7 +7,20 @@ import { Badge } from "../components/Badge";
 import styles from "./admin.module.css";
 
 type Institution = { id: string; name: string; institutionType: string; region: string; phone: string | null; directorName: string; status: string; createdAt: string; plan?: string; planExpiresAt?: string | null; };
-type FinanceRule = { id: string; ruleKey: string; title: string; category: string; calculationType: string; numericValue: number | null; formula: string | null; effectiveFrom: string; effectiveTo: string | null; sourceTitle: string; sourceReference: string | null; notes: string | null; };
+type FinanceRule = { id: string; ruleKey: string; title: string; category: string; calculationType: string; numericValue: number | null; formula: string | null; effectiveFrom: string; effectiveTo: string | null; sourceTitle: string; sourceReference: string | null; notes: string | null; appliesTo?: Record<string, unknown> };
+const financeTargetLabels: Record<string, string> = {
+  baseAmount: "Маоши асосӣ", weeklyHours: "Соатҳои ҳафтаина",
+  classHeadAllowance: "Роҳбарии синф", notebookCheckingAllowance: "Санҷиши дафтар",
+  methodicalAssociationHeadAllowance: "Роҳбари иттиҳодияи методӣ", otherAllowances: "Дигар иловапулиҳо",
+  incomeTaxDeduction: "Андоз аз даромад", partyDuesDeduction: "Ҳаққи ҳизб",
+  tradeUnionDuesDeduction: "Ҳаққи иттифоқи касаба", newspaperDeduction: "Обуна ба рӯзнома",
+  otherDeductions: "Дигар нигоҳдоштҳо",
+};
+const financeBaseLabels: Record<string, string> = {
+  baseAmount: "маоши асосӣ", grossAmount: "маоши умумӣ", allowances: "ҷамъи иловапулиҳо",
+  weeklyHours: "соатҳои ҳафтаина", workRate: "меъёри корӣ", workingDays: "рӯзҳои корӣ",
+};
+
 
 export default function AdminPage() {
   const [items, setItems] = useState<Institution[]>([]);
@@ -136,7 +149,19 @@ export default function AdminPage() {
       <div className={styles.panelHead}><div><h3>Таърихи қоидаҳо</h3><p>Версияҳои кӯҳна нест карда намешаванд.</p></div><Badge>{rules.length} қоида</Badge></div>
       {rulesLoading ? <div className={styles.empty}>Бор мешавад...</div> : rules.length === 0 ? <div className={styles.empty}>Қоидаҳо ҳоло сабт нашудаанд.</div> : <div className={styles.list}>{rules.map(rule => <article className={styles.item} key={rule.id}>
         <div className={styles.itemTop}><div><h3>{rule.title}</h3><p>{rule.ruleKey} · {rule.category}</p></div><Badge variant={rule.effectiveTo ? "secondary" : "success"}>{rule.effectiveTo ? "Версияи гузашта" : "Версияи ҷорӣ"}</Badge></div>
-        <div className={styles.details}><span><b>Қимат:</b> {rule.calculationType === "formula" ? rule.formula : rule.calculationType === "percentage" ? `${rule.numericValue}%` : `${rule.numericValue} сомонӣ`}</span><span><b>Аз:</b> {new Date(rule.effectiveFrom).toLocaleDateString("tg-TJ")}</span><span><b>То:</b> {rule.effectiveTo ? new Date(rule.effectiveTo).toLocaleDateString("tg-TJ") : "Ҳоло амал мекунад"}</span><span><b>Асос:</b> {rule.sourceTitle}</span></div>
+        <div className={styles.details}>
+          <span><b>Қимат:</b> {rule.calculationType === "formula" ? rule.formula : rule.calculationType === "percentage" ? `${rule.numericValue}%` : `${rule.numericValue} сомонӣ`}</span>
+          <span><b>Қисми маош:</b> {financeTargetLabels[String(rule.appliesTo?.target || "")] || String(rule.appliesTo?.target || "Муайян нашудааст")}</span>
+          {rule.calculationType !== "fixed" && <span><b>Пояи ҳисоб:</b> {financeBaseLabels[String(rule.appliesTo?.base || "baseAmount")] || String(rule.appliesTo?.base)}</span>}
+          <span><b>Аз:</b> {new Date(rule.effectiveFrom).toLocaleDateString("tg-TJ")}</span>
+          <span><b>То:</b> {rule.effectiveTo ? new Date(rule.effectiveTo).toLocaleDateString("tg-TJ") : "Ҳоло амал мекунад"}</span>
+          {Boolean(rule.appliesTo?.institutionType) && <span><b>Муассиса:</b> {String(rule.appliesTo?.institutionType)}</span>}
+          {Boolean(rule.appliesTo?.positionTitle) && <span><b>Вазифа:</b> {String(rule.appliesTo?.positionTitle)}</span>}
+          {Boolean(rule.appliesTo?.qualificationCategory) && <span><b>Категория:</b> {String(rule.appliesTo?.qualificationCategory)}</span>}
+          {Boolean(rule.appliesTo?.educationLevel) && <span><b>Маълумот:</b> {String(rule.appliesTo?.educationLevel)}</span>}
+          <span><b>Асос:</b> {rule.sourceTitle}</span>
+          {rule.sourceReference && <span><b>Ҳуҷҷат:</b> {rule.sourceReference}</span>}
+        </div>
       </article>)}</div>}
       <p style={{ fontSize: 12, color: "#8a6500", marginTop: 14 }}>Қоидаи фаъол ҳангоми сохтани табели нав ба қисми интихобшудаи маош татбиқ мешавад. Маблағи дастӣ воридшуда дар ҳамон майдон бо натиҷаи қоидаи марказӣ иваз мешавад. Қоида бояд санади расмӣ дошта бошад; фоизҳои андоз ё дигар меъёрҳоро худсарона ворид накунед.</p>
     </section>

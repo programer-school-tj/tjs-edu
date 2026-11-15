@@ -35,8 +35,8 @@ try {
     // Migration files may include their own BEGIN/COMMIT markers for manual use.
     // Remove those wrappers here so the SQL and tracking row share one transaction.
     const migrationBody = migration
-      .replace(/^\\s*BEGIN\\s*;\\s*/i, "")
-      .replace(/\\s*COMMIT\\s*;\\s*$/i, "");
+      .replace(/^\s*BEGIN\s*;\s*/i, "")
+      .replace(/\s*COMMIT\s*;\s*$/i, "");
 
     // If any statement fails, PostgreSQL rolls the migration back and it can be retried.
     await sql.begin(async (tx) => {

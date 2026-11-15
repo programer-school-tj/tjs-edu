@@ -13,6 +13,23 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tjs_edu
+          POSTGRES_USER: tjsedu
+          POSTGRES_PASSWORD: tjs-edu-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tjsedu -d tjs_edu"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://tjsedu:tjs-edu-ci-password@localhost:5432/tjs_edu
+      SESSION_SECRET: tjs-edu-ci-session-secret-at-least-32-characters
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +39,23 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Apply PostgreSQL migrations
+        run: npm run db:migrate
+      - name: Smoke test API and PostgreSQL connection
+        run: |
+          npm run start:api > /tmp/tjs-edu-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3001/health; then
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/tjs-edu-api.log
+          echo "TJS Edu API did not become healthy."
+          exit 1
       - name: Unit tests (finance rules and templates)
         run: npm test
       - name: TypeScript check

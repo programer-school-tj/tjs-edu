@@ -44,30 +44,32 @@ export async function handle(request: Request) {
       if (found.length !== classIds.length) return new Response(superjson.stringify({ message: "Дар танзимот синфи муассисаи дигар ё соли таҳсили дигар ёфт шуд." }), { status: 400 });
     }
 
-    await db.insertInto("institutionTimetableSettings").values({
-      institutionId: x.institutionId, academicYear: x.academicYear,
-      schoolDays: x.schoolDays, maxLessonsPerDay: x.maxLessonsPerDay,
-      teacherDailyLimit: x.teacherDailyLimit, classDailyLimit: x.classDailyLimit,
-      shiftSplitGrade: x.shiftSplitGrade,
-      teacherDailyLimits: x.teacherDailyLimits as any,
-      classDailyLimits: x.classDailyLimits as any,
-      updatedBy: user.id, updatedAt: new Date(),
-    }).onConflict((oc) => oc.columns(["institutionId", "academicYear"]).doUpdateSet({
-      schoolDays: x.schoolDays, maxLessonsPerDay: x.maxLessonsPerDay,
-      teacherDailyLimit: x.teacherDailyLimit, classDailyLimit: x.classDailyLimit,
-      shiftSplitGrade: x.shiftSplitGrade,
-      teacherDailyLimits: x.teacherDailyLimits as any,
-      classDailyLimits: x.classDailyLimits as any,
-      updatedBy: user.id, updatedAt: new Date(),
-    })).execute();
-
-    await db.insertInto("institutionAuditLogs").values({
-      institutionId: x.institutionId, actorUserId: user.id, action: "timetable.settings.updated",
-      entityType: "institution_timetable_settings", entityId: x.academicYear,
-      details: { schoolDays: x.schoolDays, maxLessonsPerDay: x.maxLessonsPerDay,
+    await db.transaction().execute(async (trx) => {
+      await trx.insertInto("institutionTimetableSettings").values({
+        institutionId: x.institutionId, academicYear: x.academicYear,
+        schoolDays: x.schoolDays, maxLessonsPerDay: x.maxLessonsPerDay,
         teacherDailyLimit: x.teacherDailyLimit, classDailyLimit: x.classDailyLimit,
-        shiftSplitGrade: x.shiftSplitGrade },
-    }).execute();
+        shiftSplitGrade: x.shiftSplitGrade,
+        teacherDailyLimits: x.teacherDailyLimits as any,
+        classDailyLimits: x.classDailyLimits as any,
+        updatedBy: user.id, updatedAt: new Date(),
+      }).onConflict((oc) => oc.columns(["institutionId", "academicYear"]).doUpdateSet({
+        schoolDays: x.schoolDays, maxLessonsPerDay: x.maxLessonsPerDay,
+        teacherDailyLimit: x.teacherDailyLimit, classDailyLimit: x.classDailyLimit,
+        shiftSplitGrade: x.shiftSplitGrade,
+        teacherDailyLimits: x.teacherDailyLimits as any,
+        classDailyLimits: x.classDailyLimits as any,
+        updatedBy: user.id, updatedAt: new Date(),
+      })).execute();
+
+      await trx.insertInto("institutionAuditLogs").values({
+        institutionId: x.institutionId, actorUserId: user.id, action: "timetable.settings.updated",
+        entityType: "institution_timetable_settings", entityId: x.academicYear,
+        details: { schoolDays: x.schoolDays, maxLessonsPerDay: x.maxLessonsPerDay,
+          teacherDailyLimit: x.teacherDailyLimit, classDailyLimit: x.classDailyLimit,
+          shiftSplitGrade: x.shiftSplitGrade },
+      }).execute();
+    });
 
     return new Response(superjson.stringify({ saved: true }), { headers: { "Content-Type": "application/json" } });
   } catch (error) {

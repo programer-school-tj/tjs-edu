@@ -32,10 +32,15 @@ try {
 
     const migration = await readFile(new URL(name, migrationsDirectory), "utf8");
     console.log(`Applying migration: ${name}`);
-    // Keep each migration and its tracking row in one transaction. If any
-    // statement fails, PostgreSQL rolls the migration back and it can be retried.
+    // Migration files may include their own BEGIN/COMMIT markers for manual use.
+    // Remove those wrappers here so the SQL and tracking row share one transaction.
+    const migrationBody = migration
+      .replace(/^\\s*BEGIN\\s*;\\s*/i, "")
+      .replace(/\\s*COMMIT\\s*;\\s*$/i, "");
+
+    // If any statement fails, PostgreSQL rolls the migration back and it can be retried.
     await sql.begin(async (tx) => {
-      await tx.unsafe(migration);
+      await tx.unsafe(migrationBody);
       await tx`INSERT INTO tjs_edu_schema_migrations (name) VALUES (${name})`;
     });
     console.log(`Applied: ${name}`);

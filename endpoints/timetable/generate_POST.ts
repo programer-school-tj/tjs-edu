@@ -135,9 +135,9 @@ export async function handle(request: Request) {
           const candidates = slotList.filter((slot) =>
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
-            !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !occupiedTeacher.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );
@@ -185,10 +185,10 @@ export async function handle(request: Request) {
           const task = orderedTasks[index];
           const candidates = slotList.filter((slot) =>
             slot.shiftNumber === task.shiftNumber &&
-            !occupiedClass.has(`${task.classId}:${slot.weekday}:${slot.lessonNumber}`) &&
-            !occupiedTeacher.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !occupiedClass.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !occupiedTeacher.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !blockedTeacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );

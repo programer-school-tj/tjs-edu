@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import postgres from "postgres";
+import { stripMigrationTransaction } from "../helpers/sqlMigration";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -32,11 +33,9 @@ try {
 
     const migration = await readFile(new URL(name, migrationsDirectory), "utf8");
     console.log(`Applying migration: ${name}`);
-    // Migration files may include their own BEGIN/COMMIT markers for manual use.
-    // Remove those wrappers here so the SQL and tracking row share one transaction.
-    const migrationBody = migration
-      .replace(/^\s*BEGIN\s*;\s*/i, "")
-      .replace(/\s*COMMIT\s*;\s*$/i, "");
+    // Strip optional SQL comments and outer transaction markers. The runner
+    // owns the transaction so the migration and tracking row stay atomic.
+    const migrationBody = stripMigrationTransaction(migration);
 
     // If any statement fails, PostgreSQL rolls the migration back and it can be retried.
     await sql.begin(async (tx) => {

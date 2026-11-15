@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
+import { timetableSlotKey } from "../../helpers/timetableSlot";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -92,8 +93,8 @@ export async function handle(request: Request) {
       if (!tasks.length) return { created: 0, unplaced: [] as string[] };
 
       const blockedTeacherSlots = new Set(availability.map((slot) => `${slot.staffId}:${slot.weekday}:${slot.lessonNumber}`));
-      const classSlots = new Set(existing.map((e) => `${e.classId}:${e.shiftNumber}:${e.weekday}:${e.lessonNumber}`));
-      const teacherSlots = new Set(existing.map((e) => `${e.staffId}:${e.shiftNumber}:${e.weekday}:${e.lessonNumber}`));
+      const classSlots = new Set(existing.map((e) => timetableSlotKey(e.classId, e.shiftNumber, e.weekday, e.lessonNumber)));
+      const teacherSlots = new Set(existing.map((e) => timetableSlotKey(e.staffId, e.shiftNumber, e.weekday, e.lessonNumber)));
       const classDayCounts = new Map<string, number>();
       const teacherDayCounts = new Map<string, number>();
       for (const e of existing) {
@@ -112,8 +113,8 @@ export async function handle(request: Request) {
       const scarcity = new Map<Task, number>();
       for (const task of tasks) {
         const count = slotList.filter((slot) => slot.shiftNumber === task.shiftNumber &&
-          !classSlots.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
-          !teacherSlots.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+          !classSlots.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
+          !teacherSlots.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
           !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
           !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
           (classDayCounts.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
@@ -134,8 +135,8 @@ export async function handle(request: Request) {
           const task = remaining[i];
           const candidates = slotList.filter((slot) =>
             slot.shiftNumber === task.shiftNumber &&
-            !occupiedClass.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
-            !occupiedTeacher.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !occupiedClass.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
+            !occupiedTeacher.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
@@ -152,8 +153,8 @@ export async function handle(request: Request) {
           rankedCandidates.sort((a, b) => a.score - b.score);
           const chosen = rankedCandidates[0].slot;
           placed[i] = chosen;
-          occupiedClass.add(`${task.classId}:${chosen.shiftNumber}:${chosen.weekday}:${chosen.lessonNumber}`);
-          occupiedTeacher.add(`${task.staffId}:${chosen.shiftNumber}:${chosen.weekday}:${chosen.lessonNumber}`);
+          occupiedClass.add(timetableSlotKey(task.classId, chosen.shiftNumber, chosen.weekday, chosen.lessonNumber));
+          occupiedTeacher.add(timetableSlotKey(task.staffId, chosen.shiftNumber, chosen.weekday, chosen.lessonNumber));
           const ck = `${task.classId}:${chosen.weekday}`;
           dayClasses.set(ck, (dayClasses.get(ck) || 0) + 1);
           const tk = `${task.staffId}:${chosen.weekday}`;
@@ -185,8 +186,8 @@ export async function handle(request: Request) {
           const task = orderedTasks[index];
           const candidates = slotList.filter((slot) =>
             slot.shiftNumber === task.shiftNumber &&
-            !occupiedClass.has(`${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
-            !occupiedTeacher.has(`${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !occupiedClass.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
+            !occupiedTeacher.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
             !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
@@ -204,8 +205,8 @@ export async function handle(request: Request) {
 
           for (const candidate of ranked) {
             const slot = candidate.slot;
-            const classKey = `${task.classId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`;
-            const teacherKey = `${task.staffId}:${slot.shiftNumber}:${slot.weekday}:${slot.lessonNumber}`;
+            const classKey = timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber);
+            const teacherKey = timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber);
             const classDayKey = `${task.classId}:${slot.weekday}`;
             const teacherDayKey = `${task.staffId}:${slot.weekday}`;
             occupiedClass.add(classKey);

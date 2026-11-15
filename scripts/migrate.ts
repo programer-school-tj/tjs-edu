@@ -32,8 +32,12 @@ try {
 
     const migration = await readFile(new URL(name, migrationsDirectory), "utf8");
     console.log(`Applying migration: ${name}`);
-    await sql.unsafe(migration);
-    await sql`INSERT INTO tjs_edu_schema_migrations (name) VALUES (${name})`;
+    // Keep each migration and its tracking row in one transaction. If any
+    // statement fails, PostgreSQL rolls the migration back and it can be retried.
+    await sql.begin(async (tx) => {
+      await tx.unsafe(migration);
+      await tx`INSERT INTO tjs_edu_schema_migrations (name) VALUES (${name})`;
+    });
     console.log(`Applied: ${name}`);
   }
 

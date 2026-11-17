@@ -20,7 +20,7 @@ export async function handle(request: Request) {
     if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Иҷозат надоред." }), { status: 403 });
     const slots = await db.selectFrom("institutionStaffAvailability")
       .innerJoin("institutionStaff", "institutionStaff.id", "institutionStaffAvailability.staffId")
-      .select(["institutionStaffAvailability.id", "institutionStaffAvailability.staffId", "institutionStaffAvailability.weekday", "institutionStaffAvailability.lessonNumber", "institutionStaffAvailability.academicYear", "institutionStaff.fullName as teacherName"])
+      .select(["institutionStaffAvailability.id", "institutionStaffAvailability.staffId", "institutionStaffAvailability.weekday", "institutionStaffAvailability.shiftNumber", "institutionStaffAvailability.lessonNumber", "institutionStaffAvailability.academicYear", "institutionStaff.fullName as teacherName"])
       .where("institutionStaffAvailability.institutionId", "=", institutionId)
       .where("institutionStaffAvailability.academicYear", "=", academicYear)
       .orderBy("institutionStaffAvailability.staffId")

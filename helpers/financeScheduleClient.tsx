@@ -31,6 +31,6 @@ export const getTimetableSettings=async(institutionId:string,academicYear:string
 export const saveTimetableSettings=(x:{institutionId:string;academicYear:string}&TimetableSettings)=>call<{saved:boolean}>("/_api/timetable-settings/save",x);
 
 export const getStaffAvailability=async(institutionId:string,academicYear:string)=>(await call<{slots:any[]}>(`/_api/staff-availability/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).slots||[];
-export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);
+export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;shiftNumber?:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);
 
 export const previewPayroll = (x: any) => call<{ preview: any }>("/_api/payroll/preview", x);

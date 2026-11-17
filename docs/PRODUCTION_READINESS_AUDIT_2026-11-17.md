@@ -48,6 +48,25 @@ This corrects any earlier interpretation that migration 012 enforces teacher/roo
 5. Add tests for legacy all-shift rows, shift-1-only and shift-2-only blocks, whole-day blocks, lesson 7–12, duplicate slots, and migration upgrade behavior.
 6. Before adopting shift-local teacher/room conflict rules in production, verify actual start/end times for both shifts. If clock times overlap, model real time intervals or retain a cross-shift conflict check for overlapping periods.
 
-## Not changed in this audit
+## Follow-up implementation on the work branch
 
-No schema migration, application behavior, database connection, Supabase project, branch protection setting, or production deployment was changed as part of this audit note. No Supabase project was created or connected. The `main` branch was not targeted.
+The following remediation was committed after the source-level audit, still only on `work/production-readiness-phase-1`:
+
+- Added `db/migrations/013_staff_availability_shift_scope.sql`. Existing rows default to shift scope `0` (both shifts); new rules support `1` and `2`. The database lesson range is aligned to 0–12, and the availability uniqueness key now includes shift scope.
+- Updated availability save/list endpoints, the Kysely schema type, and the client payload to carry `shiftNumber`. Validation rejects overlapping rules and supports up to 144 per-teacher rules.
+- Added three UI choices, with “both shifts” selected by default. Narrowing an existing both-shifts restriction to one shift preserves the opposite shift's restriction.
+- Updated automatic generation, Excel import, and manual lesson entry to apply availability to the correct shift.
+- Added translations for the shift options in Tajik, Russian, English, Uzbek and Persian.
+- Added `tests/staffAvailability.test.ts` for both-shift rules, shift-specific whole-day rules, and shift/day/teacher-scoped lesson rules.
+
+### Verification status
+
+The focused availability helper tests were run in an isolated Node.js 22 environment: 3 tests passed. This is not a substitute for the repository's complete `npm test`, TypeScript check, production build, or a PostgreSQL migration test. Those full checks have not yet been verified for the latest branch commit. A local repository clone could not be obtained because the runtime could not resolve GitHub.
+
+The migration has been committed but has **not** been applied to any database. No Supabase project was created or connected, no production deployment was made, and the `main` branch was not targeted.
+
+## Remaining production checks
+
+1. Run the complete test suite, TypeScript check and production build against the latest branch commit.
+2. Apply migration 013 to a staging database and verify upgrade behavior with existing availability rows.
+3. Confirm real bell start/end times for both shifts. Shift-local timetable slots are only safe if the relevant periods do not overlap in clock time.

@@ -31,6 +31,7 @@ export default function TimetablePage() {
   });
   const [availabilityStaffId, setAvailabilityStaffId] = useState("");
   const [availabilityWeekday, setAvailabilityWeekday] = useState("5");
+  const [availabilityShift, setAvailabilityShift] = useState("0");
   const [availabilityLesson, setAvailabilityLesson] = useState("0");
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [loadBusy, setLoadBusy] = useState(false);
@@ -94,8 +95,38 @@ export default function TimetablePage() {
     finally { setSettingsBusy(false); }
   };
   const saveLoad = async (event: React.FormEvent) => { event.preventDefault(); setLoadBusy(true); setErr(""); try { await addTeachingLoad({ institutionId: school, ...loadForm, weeklyHours: Number(loadForm.weeklyHours), academicYear: year }); setLoads(await getTeachingLoads(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorLoad")); } finally { setLoadBusy(false); } };
-  const saveAvailability = async (event: React.FormEvent) => { event.preventDefault(); if (!availabilityStaffId) return; setAvailabilityBusy(true); setErr(""); try { const weekday = Number(availabilityWeekday); const lessonNumber = Number(availabilityLesson); const current = availabilitySlots.filter((slot) => slot.staffId === availabilityStaffId && slot.weekday <= timetableSettings.schoolDays && slot.lessonNumber <= timetableSettings.maxLessonsPerDay && !(slot.weekday === weekday && (lessonNumber === 0 || slot.lessonNumber === 0 || slot.lessonNumber === lessonNumber))); const next = [...current, { weekday, lessonNumber }]; await saveStaffAvailability({ institutionId: school, staffId: availabilityStaffId, academicYear: year, slots: next.map((slot) => ({ weekday: slot.weekday, lessonNumber: slot.lessonNumber })) }); setAvailabilitySlots(await getStaffAvailability(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorAvailability")); } finally { setAvailabilityBusy(false); } };
-  const removeAvailability = async (slot: any) => { setAvailabilityBusy(true); setErr(""); try { const next = availabilitySlots.filter((item) => item.staffId === slot.staffId && item.id !== slot.id && item.weekday <= timetableSettings.schoolDays && item.lessonNumber <= timetableSettings.maxLessonsPerDay); await saveStaffAvailability({ institutionId: school, staffId: slot.staffId, academicYear: year, slots: next.map((item) => ({ weekday: item.weekday, lessonNumber: item.lessonNumber })) }); setAvailabilitySlots(await getStaffAvailability(school, year)); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorRemove")); } finally { setAvailabilityBusy(false); } };
+  const saveAvailability = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!availabilityStaffId) return;
+    setAvailabilityBusy(true); setErr("");
+    try {
+      const weekday = Number(availabilityWeekday);
+      const shiftNumber = Number(availabilityShift);
+      const lessonNumber = Number(availabilityLesson);
+      const current = availabilitySlots.filter((slot) => {
+        if (slot.staffId !== availabilityStaffId || slot.weekday > timetableSettings.schoolDays || slot.lessonNumber > timetableSettings.maxLessonsPerDay) return false;
+        const sameDay = slot.weekday === weekday;
+        const shiftsOverlap = Number(slot.shiftNumber ?? 0) === 0 || shiftNumber === 0 || Number(slot.shiftNumber) === shiftNumber;
+        const lessonsOverlap = lessonNumber === 0 || slot.lessonNumber === 0 || slot.lessonNumber === lessonNumber;
+        return !(sameDay && shiftsOverlap && lessonsOverlap);
+      });
+      const next = [...current, { weekday, shiftNumber, lessonNumber }];
+      await saveStaffAvailability({ institutionId: school, staffId: availabilityStaffId, academicYear: year,
+        slots: next.map((slot) => ({ weekday: slot.weekday, shiftNumber: Number(slot.shiftNumber ?? 0), lessonNumber: slot.lessonNumber })) });
+      setAvailabilitySlots(await getStaffAvailability(school, year));
+    } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorAvailability")); }
+    finally { setAvailabilityBusy(false); }
+  };
+  const removeAvailability = async (slot: any) => {
+    setAvailabilityBusy(true); setErr("");
+    try {
+      const next = availabilitySlots.filter((item) => item.staffId === slot.staffId && item.id !== slot.id && item.weekday <= timetableSettings.schoolDays && item.lessonNumber <= timetableSettings.maxLessonsPerDay);
+      await saveStaffAvailability({ institutionId: school, staffId: slot.staffId, academicYear: year,
+        slots: next.map((item) => ({ weekday: item.weekday, shiftNumber: Number(item.shiftNumber ?? 0), lessonNumber: item.lessonNumber })) });
+      setAvailabilitySlots(await getStaffAvailability(school, year));
+    } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorRemove")); }
+    finally { setAvailabilityBusy(false); }
+  };
   const generate = async () => { setLoadBusy(true); setErr(""); try { const result = await generateTimetable({ institutionId: school, academicYear: year }); setRows(await getTimetable(school, year)); window.alert(t("timetable.generated").replace("{count}", String(result.created))); } catch (error) { setErr(error instanceof Error ? error.message : t("timetable.errorGenerate")); } finally { setLoadBusy(false); } };
 
   const downloadImportTemplate = async () => {
@@ -230,9 +261,10 @@ export default function TimetablePage() {
     <section className={styles.panel}><h2>{t("timetable.availabilityTitle")}</h2><p className={styles.note}>{t("timetable.availabilityNote")}</p><form onSubmit={saveAvailability}>
       <label>{t("timetable.teacher")}<select required value={availabilityStaffId} onChange={(event) => setAvailabilityStaffId(event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>
       <label>{t("timetable.weekday")}<select value={availabilityWeekday} onChange={(event) => setAvailabilityWeekday(event.target.value)}>{days.slice(1, timetableSettings.schoolDays + 1).map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label>
+      <label>Баст<select value={availabilityShift} onChange={(event) => setAvailabilityShift(event.target.value)}><option value="0">Ҳар ду баст</option><option value="1">Танҳо басти якум</option><option value="2">Танҳо басти дуюм</option></select></label>
       <label>{t("timetable.blockedTime")}<select value={availabilityLesson} onChange={(event) => setAvailabilityLesson(event.target.value)}><option value="0">{t("timetable.allDayOff")}</option>{Array.from({ length: timetableSettings.maxLessonsPerDay }, (_, index) => index + 1).map((n) => <option key={n} value={n}>{n}{t("timetable.periodSuffix")}</option>)}</select></label>
       <button disabled={availabilityBusy || !availabilityStaffId}>{availabilityBusy ? t("timetable.saving") : t("timetable.saveRestriction")}</button>
-    </form><div className={styles.table}><table><thead><tr><th>{t("timetable.teacher").toLocaleUpperCase()}</th><th>{t("timetable.weekday").toLocaleUpperCase()}</th><th>{t("timetable.blockedTime").toLocaleUpperCase()}</th><th>{t("timetable.remove").toLocaleUpperCase()}</th></tr></thead><tbody>{availabilitySlots.map((slot) => <tr key={slot.id}><td>{slot.teacherName}</td><td>{days[slot.weekday]}</td><td>{slot.lessonNumber === 0 ? t("timetable.allDayOff") : slot.lessonNumber + t("timetable.periodSuffix")}</td><td><button type="button" disabled={availabilityBusy} onClick={() => void removeAvailability(slot)}>{t("timetable.remove")}</button></td></tr>)}</tbody></table>{!availabilitySlots.length && <p>{t("timetable.noAvailability")}</p>}</div></section>
+    </form><div className={styles.table}><table><thead><tr><th>{t("timetable.teacher").toLocaleUpperCase()}</th><th>{t("timetable.weekday").toLocaleUpperCase()}</th><th>БАСТ</th><th>{t("timetable.blockedTime").toLocaleUpperCase()}</th><th>{t("timetable.remove").toLocaleUpperCase()}</th></tr></thead><tbody>{availabilitySlots.map((slot) => <tr key={slot.id}><td>{slot.teacherName}</td><td>{days[slot.weekday]}</td><td>{Number(slot.shiftNumber ?? 0) === 0 ? "Ҳар ду баст" : Number(slot.shiftNumber) === 1 ? "Басти якум" : "Басти дуюм"}</td><td>{slot.lessonNumber === 0 ? t("timetable.allDayOff") : slot.lessonNumber + t("timetable.periodSuffix")}</td><td><button type="button" disabled={availabilityBusy} onClick={() => void removeAvailability(slot)}>{t("timetable.remove")}</button></td></tr>)}</tbody></table>{!availabilitySlots.length && <p>{t("timetable.noAvailability")}</p>}</div></section>
     <section className={styles.panel}><h2>{t("timetable.addLesson")}</h2><form onSubmit={save}>
       <label>{t("timetable.class")}<select required value={f.classId} onChange={(event) => set("classId", event.target.value)}>{classes.map((item) => <option key={item.id} value={item.id}>{item.grade}{item.section}</option>)}</select></label>
       <label>{t("timetable.teacher")}<select required value={f.staffId} onChange={(event) => set("staffId", event.target.value)}>{staff.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select>{selectedTeacher && teacherRemainingHours !== null && <small className={styles.note}>{t("timetable.approvedLoadInfo").replace("{approved}", String(Number(selectedTeacher.workloadHours))).replace("{scheduled}", String(teacherScheduledHours)).replace("{remaining}", String(teacherRemainingHours))}</small>}</label>

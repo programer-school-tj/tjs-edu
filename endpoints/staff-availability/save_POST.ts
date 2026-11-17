@@ -11,7 +11,7 @@ const schema = z.object({
     weekday: z.number().int().min(1).max(6),
     shiftNumber: z.number().int().min(0).max(2).default(0),
     lessonNumber: z.number().int().min(0).max(12),
-  })).max(72).refine((items) => items.every((item, index) =>
+  })).max(144).refine((items) => items.every((item, index) =>
     !items.slice(index + 1).some((other) =>
       other.weekday === item.weekday &&
       (item.shiftNumber === 0 || other.shiftNumber === 0 || item.shiftNumber === other.shiftNumber) &&

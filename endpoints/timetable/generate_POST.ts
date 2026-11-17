@@ -4,6 +4,7 @@ import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
 import { timetableSlotKey } from "../../helpers/timetableSlot";
+import { isStaffUnavailable } from "../../helpers/staffAvailability";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -44,7 +45,7 @@ export async function handle(request: Request) {
         trx.selectFrom("institutionStaff").select(["id", "workloadHours"]).where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
         trx.selectFrom("institutionTimetableEntries").select(["id", "classId", "staffId", "subject", "weekday", "lessonNumber", "shiftNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
-        trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "lessonNumber"])
+        trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "shiftNumber", "lessonNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionTimetableSettings").selectAll()
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst(),
@@ -92,7 +93,6 @@ export async function handle(request: Request) {
       }
       if (!tasks.length) return { created: 0, unplaced: [] as string[] };
 
-      const blockedTeacherSlots = new Set(availability.map((slot) => `${slot.staffId}:${slot.weekday}:${slot.lessonNumber}`));
       const classSlots = new Set(existing.map((e) => timetableSlotKey(e.classId, e.shiftNumber, e.weekday, e.lessonNumber)));
       const teacherSlots = new Set(existing.map((e) => timetableSlotKey(e.staffId, e.shiftNumber, e.weekday, e.lessonNumber)));
       const classDayCounts = new Map<string, number>();
@@ -115,8 +115,7 @@ export async function handle(request: Request) {
         const count = slotList.filter((slot) => slot.shiftNumber === task.shiftNumber &&
           !classSlots.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
           !teacherSlots.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
-          !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-          !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+          !isStaffUnavailable(availability, task.staffId, slot.weekday, slot.shiftNumber, slot.lessonNumber) &&
           (classDayCounts.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
           (teacherDayCounts.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))).length;
         scarcity.set(task, count);
@@ -137,8 +136,7 @@ export async function handle(request: Request) {
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
             !occupiedTeacher.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !isStaffUnavailable(availability, task.staffId, slot.weekday, slot.shiftNumber, slot.lessonNumber) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );
@@ -188,8 +186,7 @@ export async function handle(request: Request) {
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
             !occupiedTeacher.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:0`) &&
-            !blockedTeacherSlots.has(`${task.staffId}:${slot.weekday}:${slot.lessonNumber}`) &&
+            !isStaffUnavailable(availability, task.staffId, slot.weekday, slot.shiftNumber, slot.lessonNumber) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
           );

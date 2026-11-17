@@ -32,11 +32,12 @@ jobs:
       SESSION_SECRET: tjs-edu-ci-session-secret-at-least-32-characters
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
+          package-manager-cache: false
       - name: Install dependencies
         run: npm install
       - name: Apply PostgreSQL migrations
@@ -65,7 +66,7 @@ jobs:
       - name: Validate Docker production image
         run: docker build -t tjs-edu:ci .
       - name: Upload editable source archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tjs-edu-source
           path: |
@@ -80,7 +81,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tjs-edu-dist
           path: dist/

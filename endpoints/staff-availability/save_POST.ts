@@ -9,9 +9,15 @@ const schema = z.object({
   academicYear: z.string().regex(/^20[0-9]{2}-20[0-9]{2}$/),
   slots: z.array(z.object({
     weekday: z.number().int().min(1).max(6),
+    shiftNumber: z.number().int().min(0).max(2).default(0),
     lessonNumber: z.number().int().min(0).max(12),
-  })).max(72).refine((items) => new Set(items.map((item) => item.weekday + ":" + item.lessonNumber)).size === items.length, "Қоидаи такрорӣ вуҷуд дорад.")
-    .refine((items) => items.every((item) => item.lessonNumber === 0 || !items.some((other) => other.weekday === item.weekday && other.lessonNumber === 0)), "Рӯзи истироҳатро бо соати банд якҷоя интихоб кардан мумкин нест.")
+  })).max(72).refine((items) => items.every((item, index) =>
+    !items.slice(index + 1).some((other) =>
+      other.weekday === item.weekday &&
+      (item.shiftNumber === 0 || other.shiftNumber === 0 || item.shiftNumber === other.shiftNumber) &&
+      (item.lessonNumber === 0 || other.lessonNumber === 0 || item.lessonNumber === other.lessonNumber)
+    )
+  ), "Қоидаҳои такрорӣ ё ба ҳам зид вуҷуд доранд.")
 });
 
 export async function handle(request: Request) {
@@ -48,7 +54,7 @@ export async function handle(request: Request) {
       if (x.slots.length) {
         await trx.insertInto("institutionStaffAvailability").values(x.slots.map((slot) => ({
           institutionId: x.institutionId, staffId: x.staffId, academicYear: x.academicYear,
-          weekday: slot.weekday, lessonNumber: slot.lessonNumber, createdBy: user.id,
+          weekday: slot.weekday, shiftNumber: slot.shiftNumber, lessonNumber: slot.lessonNumber, createdBy: user.id,
         }))).execute();
       }
     });

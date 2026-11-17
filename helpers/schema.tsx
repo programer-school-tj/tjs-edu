@@ -196,6 +196,7 @@ export interface InstitutionStaffAvailability {
   id: Generated<string>;
   institutionId: string;
   lessonNumber: number;
+  shiftNumber: number;
   staffId: string;
   weekday: number;
 }

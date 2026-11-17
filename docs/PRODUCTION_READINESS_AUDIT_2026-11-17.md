@@ -61,9 +61,9 @@ The following remediation was committed after the source-level audit, still only
 
 ### Verification status
 
-The focused availability helper tests were run in an isolated Node.js 22 environment: 3 tests passed. This is not a substitute for the repository's complete `npm test`, TypeScript check, production build, or a PostgreSQL migration test. Those full checks have not yet been verified for the latest branch commit. A local repository clone could not be obtained because the runtime could not resolve GitHub.
+The latest implementation commit `7d406a3f048dd4a247ca47566c9af32c7e5262f0` was verified by GitHub Actions run [#412](https://github.com/programer-school-tj/tjs-edu/actions/runs/44043892562), which completed with conclusion `success`. The successful job ran dependency installation, all PostgreSQL migrations against its ephemeral PostgreSQL 16 service, API/database smoke test, `npm test`, `npm run typecheck`, `npm run build`, and Docker image validation. The job also uploaded `tjs-edu-source` (417,285 bytes) and `tjs-edu-dist` (1,849,718 bytes) artifacts.
 
-The migration has been committed but has **not** been applied to any database. No Supabase project was created or connected, no production deployment was made, and the `main` branch was not targeted.
+This confirms migration 013 and the full CI test/build sequence work in the temporary CI database/environment. It does **not** mean migration 013 has been applied to a persistent staging or production database. The artifacts are retained by GitHub Actions for 7 days from 2026-11-17. No Supabase project was created or connected, no production deployment was made, and the `main` branch was not targeted.
 
 ## Remaining production checks
 

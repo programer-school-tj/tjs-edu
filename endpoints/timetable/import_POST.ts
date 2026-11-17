@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
+import { isStaffUnavailable } from "../../helpers/staffAvailability";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -42,7 +43,7 @@ export async function handle(request: Request) {
           .where("institutionId", "=", x.institutionId).where("isActive", "=", true).execute(),
         trx.selectFrom("institutionTimetableEntries").select(["classId", "staffId", "subject", "weekday", "lessonNumber", "shiftNumber", "room"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
-        trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "lessonNumber"])
+        trx.selectFrom("institutionStaffAvailability").select(["staffId", "weekday", "shiftNumber", "lessonNumber"])
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).execute(),
         trx.selectFrom("institutionTimetableSettings").selectAll()
           .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst(),
@@ -95,7 +96,7 @@ export async function handle(request: Request) {
         scheduledByLoad.set(subjectLoadKey, subjectHoursUsed + 1);
         if (row.weekday > schoolDays || row.lessonNumber > maxLessons) throw new Error(`ROW_${index + 2}_SLOT_OUTSIDE_SETTINGS`);
         const shiftNumber = Number(cls.grade) <= shiftSplitGrade ? 2 : 1;
-        const teacherUnavailable = availability.some((slot) => slot.staffId === teacher.id && slot.weekday === row.weekday && (slot.lessonNumber === 0 || slot.lessonNumber === row.lessonNumber));
+        const teacherUnavailable = isStaffUnavailable(availability, teacher.id, row.weekday, shiftNumber, row.lessonNumber);
         if (teacherUnavailable) throw new Error(`ROW_${index + 2}_TEACHER_UNAVAILABLE`);
         const teacherDayKey = teacher.id + ":" + row.weekday;
         if ((teacherDayHours.get(teacherDayKey) || 0) >= Math.min(teacherLimit, Number(teacherDailyLimits[teacher.id] ?? teacherLimit))) throw new Error(`ROW_${index + 2}_TEACHER_DAILY_LIMIT`);

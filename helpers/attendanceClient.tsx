@@ -59,7 +59,7 @@ export async function getAttendance(institutionId: string, classId: string, date
     } catch {
       // A cache failure must not turn a successful online read into a failed page load.
     }
-    return safeRoster;
+    return { students: safeRoster, fromCache: false as const };
   } catch (error) {
     // Never use cached data after an authorization or validation response.
     const isNetworkFailure = error instanceof TypeError ||
@@ -67,7 +67,7 @@ export async function getAttendance(institutionId: string, classId: string, date
     if (!isNetworkFailure) throw error;
     const cached = await getAttendanceRosterCache<any[]>(userId, institutionId, classId, date);
     if (!cached) throw error;
-    return cached.value;
+    return { students: cached.value, fromCache: true as const, savedAt: cached.savedAt };
   }
 }
 

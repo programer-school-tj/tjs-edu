@@ -8,6 +8,7 @@ type DocumentType = "tariffing" | "payroll" | "timetable";
 type Props = {
   title: string;
   templateUrl: string;
+  templateVersion?: string;
   documentType: DocumentType;
   institutionId: string;
   academicYear: string;
@@ -172,7 +173,7 @@ export function ExcelTemplateEditor(props: Props) {
 
   const load = useCallback(async () => {
     if (!props.institutionId) return;
-    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey].join("|");
+    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey, props.templateVersion || "2026-11-07-v2"].join("|");
     const pendingEdits = documentKeyRef.current === documentKey ? { ...dirtyCellsRef.current } : {};
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
@@ -196,8 +197,15 @@ export function ExcelTemplateEditor(props: Props) {
         if (!isFormulaCell(target)) target.value = value;
       });
       const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey);
-      const cells = (saved?.payload?.cells || {}) as Record<string, string>;
+      const storedVersion = String(saved?.templateVersion || "");
+      const currentVersion = props.templateVersion || "2026-11-07-v2";
+      const storedCells = (saved?.payload?.cells || {}) as Record<string, string>;
+      const compatibleCells = !storedVersion || storedVersion === currentVersion;
+      const cells = compatibleCells ? storedCells : {};
       savedCellsRef.current = { ...cells };
+      if (!compatibleCells && Object.keys(storedCells).length) {
+        setNotice("Бланки ҷадвали дарсӣ нав шуд. Сабтҳои версияи пешина ба шакли нав худкор гузаронида нашуданд; маълумоти пешина то сабти бланки нав дар пойгоҳи додаҳо нигоҳ дошта мешавад.");
+      }
       Object.entries(cells).forEach(([address, value]) => {
         if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(address) || typeof value !== "string") return;
         const target = worksheet.getCell(address);
@@ -215,7 +223,7 @@ export function ExcelTemplateEditor(props: Props) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Бланка кушода нашуд.");
     } finally { setBusy(false); }
-  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, periodKey]);
+  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, props.templateVersion, periodKey]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -252,7 +260,7 @@ export function ExcelTemplateEditor(props: Props) {
       // Persist only user-edited cells. This keeps auto-filled staff data dynamic
       // for newly added employees while preserving intentional manual clearing.
       const cells = { ...savedCellsRef.current, ...dirtyCellsRef.current };
-      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: "2026-11-07-v2", cells });
+      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: props.templateVersion || "2026-11-07-v2", cells });
       savedCellsRef.current = cells;
       dirtyCellsRef.current = {};
       setDirty(false); setNotice("Тағйиротҳо дар пойгоҳи додаҳо сабт шуданд.");

@@ -21,7 +21,7 @@ const schema = z.object({
     ? { minRow: 5, maxRow: 142, maxColumn: 26 }
     : input.documentType === "payroll"
       ? { minRow: 5, maxRow: 142, maxColumn: 30 }
-      : { minRow: 4, maxRow: 81, maxColumn: 27 };
+      : { minRow: 4, maxRow: 80, maxColumn: 11 };
   for (const address of Object.keys(input.cells)) {
     const match = /^([A-Z]{1,3})([1-9][0-9]*)$/.exec(address);
     if (!match) continue;

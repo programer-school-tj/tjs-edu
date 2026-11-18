@@ -32,9 +32,9 @@ export async function handle(request: Request) {
       if (idempotencyKey) {
         const inserted = await sql<{ idempotencyKey: string }>`
           INSERT INTO api_idempotency_keys
-            (idempotency_key, user_id, scope, request_hash)
-          VALUES (${idempotencyKey}, ${user.id}, ${scope}, ${requestHash})
-          ON CONFLICT (idempotency_key) DO NOTHING
+            (scope, user_id, idempotency_key, request_hash)
+          VALUES (${scope}, ${user.id}, ${idempotencyKey}, ${requestHash})
+          ON CONFLICT (scope, user_id, idempotency_key) DO NOTHING
           RETURNING idempotency_key AS "idempotencyKey"
         `.execute(trx);
 
@@ -49,7 +49,10 @@ export async function handle(request: Request) {
             SELECT user_id AS "userId", scope, request_hash AS "requestHash",
                    response_body AS "responseBody", response_status AS "responseStatus"
             FROM api_idempotency_keys
-            WHERE idempotency_key = ${idempotencyKey}
+            WHERE scope = ${scope} AND user_id = ${user.id}
+              AND idempotency_key = ${idempotencyKey}
+              AND expires_at > now()
+            FOR UPDATE
           `.execute(trx);
           const saved = previous.rows[0];
           if (!saved || Number(saved.userId) !== Number(user.id) || saved.scope !== scope || saved.requestHash !== requestHash) {
@@ -70,9 +73,9 @@ export async function handle(request: Request) {
         await sql`
           UPDATE api_idempotency_keys
           SET response_body = ${JSON.stringify(body)}::jsonb,
-              response_status = 200,
-              completed_at = now()
-          WHERE idempotency_key = ${idempotencyKey}
+              response_status = 200
+          WHERE scope = ${scope} AND user_id = ${user.id}
+            AND idempotency_key = ${idempotencyKey}
         `.execute(trx);
       }
       return { kind: "saved" as const, body, status: 200 };

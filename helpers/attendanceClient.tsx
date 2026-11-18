@@ -1,5 +1,5 @@
 import superjson from "superjson";
-import { enqueueOutbox, flushOutbox } from "./offlineOutbox";
+import { enqueueOutbox, flushOutbox, listOutbox } from "./offlineOutbox";
 
 type AttendanceInput = {
   institutionId: string;
@@ -50,9 +50,10 @@ export const getAttendance = async (institutionId: string, classId: string, date
 
 export async function saveAttendance(input: AttendanceInput): Promise<{ saved: number; queued?: boolean }> {
   // Persist first, then send. The same outbox id is reused as the server idempotency key on retries.
-  await enqueueOutbox(ATTENDANCE_SCOPE, input);
-  const result = await syncAttendanceOutbox();
-  return result.sent > 0
-    ? { saved: input.records.length }
-    : { saved: input.records.length, queued: true };
+  const entry = await enqueueOutbox(ATTENDANCE_SCOPE, input);
+  await syncAttendanceOutbox();
+  const remaining = await listOutbox(ATTENDANCE_SCOPE);
+  return remaining.some((item) => item.id === entry.id)
+    ? { saved: input.records.length, queued: true }
+    : { saved: input.records.length };
 }

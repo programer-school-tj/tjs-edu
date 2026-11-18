@@ -4,6 +4,7 @@ import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
 import { isStaffUnavailable } from "../../helpers/staffAvailability";
+import { timetableLessonsOverlap } from "../../helpers/timetableTime";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -106,7 +107,8 @@ export async function handle(request: Request) {
         const teacherSlot = `${teacher.id}:${shiftNumber}:${row.weekday}:${row.lessonNumber}`;
         const normalizedRoom = row.room.trim().toLocaleLowerCase();
         const roomSlot = normalizedRoom ? `${normalizedRoom}:${shiftNumber}:${row.weekday}:${row.lessonNumber}` : "";
-        if (occupiedClass.has(classSlot) || occupiedTeacher.has(teacherSlot) || (roomSlot && occupiedRooms.has(roomSlot))) throw new Error(`ROW_${index + 2}_CONFLICT`);
+        const realTimeConflict = [...existing, ...newRows].some((slot) => slot.weekday === row.weekday && timetableLessonsOverlap(slot.shiftNumber, slot.lessonNumber, shiftNumber, row.lessonNumber) && (slot.staffId === teacher.id || (normalizedRoom && slot.room?.trim().toLocaleLowerCase() === normalizedRoom)));
+        if (occupiedClass.has(classSlot) || occupiedTeacher.has(teacherSlot) || (roomSlot && occupiedRooms.has(roomSlot)) || realTimeConflict) throw new Error(`ROW_${index + 2}_CONFLICT`);
         occupiedClass.add(classSlot);
         occupiedTeacher.add(teacherSlot);
         teacherDayHours.set(teacherDayKey, (teacherDayHours.get(teacherDayKey) || 0) + 1);

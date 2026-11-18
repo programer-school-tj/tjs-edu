@@ -1,6 +1,9 @@
 name: Package TJS Edu ZIP
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - work/production-readiness-phase-1

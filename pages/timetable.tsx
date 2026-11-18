@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getClasses } from "../helpers/educationClient";
 import { getStaff } from "../helpers/staffClient";
-import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability, getTimetableSettings, saveTimetableSettings } from "../helpers/financeScheduleClient";
+import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability, getTimetableSettings, saveTimetableSettings, syncTimetableSettingsOutbox } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
@@ -44,6 +44,13 @@ export default function TimetablePage() {
   const [busy, setBusy] = useState(false);
   const [quotaNotice, setQuotaNotice] = useState<QuotaNotice>(null);
   const [f, setF] = useState({ classId: "", staffId: "", subject: "", weekday: "1", lessonNumber: "1", room: "" });
+
+  useEffect(() => {
+    const sync = () => { void syncTimetableSettingsOutbox().catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, []);
 
   useEffect(() => {
     void getInstitutions().then((items) => {
@@ -89,8 +96,10 @@ export default function TimetablePage() {
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault(); setSettingsBusy(true); setErr("");
     try {
-      await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings });
-      window.alert("Танзимоти ҷадвали дарсӣ сабт шуд.");
+      const result = await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings });
+      window.alert(result.queued
+        ? "Танзимот дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад."
+        : "Танзимоти ҷадвали дарсӣ сабт шуд.");
     } catch (error) { setErr(error instanceof Error ? error.message : "Танзимот сабт нашуд."); }
     finally { setSettingsBusy(false); }
   };

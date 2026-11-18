@@ -70,3 +70,27 @@ This confirms migration 013 and the full CI test/build sequence work in the temp
 1. Run the complete test suite, TypeScript check and production build against the latest branch commit.
 2. Apply migration 013 to a staging database and verify upgrade behavior with existing availability rows.
 3. Confirm real bell start/end times for both shifts. Shift-local timetable slots are only safe if the relevant periods do not overlap in clock time.
+
+
+## Re-audit: 2026-11-18
+
+Audited branch head: `814e503070bd7a7ab194a70f696d2e13bb578d06`.
+
+### Confirmed since the previous audit
+
+- GitHub Actions run [#424](https://github.com/programer-school-tj/tjs-edu/actions/runs/44222443277) completed successfully on the branch. This is CI evidence only, not a live deployment or production acceptance test.
+- The timetable generator now uses `timetableLessonsOverlap` when checking teacher assignments, including assignments across shifts.
+- The manual timetable and Excel-import paths were updated to use the same bell-time overlap check in commit `814e503`.
+- Bell schedule remains internal logic only. The helper explicitly states that bell times must not be displayed in timetable or print templates.
+- The current service worker still caches the application shell and static same-origin assets only. It does not implement durable offline form writes, an IndexedDB outbox, retry handling, or background synchronization.
+- The three Excel form pages currently point to their previously configured static template URLs. A verified, self-hosted copy of the supplied workbook has not yet been added to this branch.
+
+### Production blockers still open
+
+1. Offline data-entry queue and conflict-aware synchronization are not implemented.
+2. The supplied Excel workbook must be safely added as a valid binary asset in the repository, then checked for worksheet names, layout, formulas and print output.
+3. The original timetable form has no time column. Bell-time intervals are for internal conflict validation only. The source timetable template has fewer class slots than the 21 classes currently configured for МТМУ №14; decide whether to use continuation pages or an approved expanded print form before changing the original layout.
+4. Production hosting, HTTPS, persistent PostgreSQL, automated backups, rate limiting and institution-isolation acceptance tests remain to be configured and verified.
+5. Android packaging and release process remain outstanding.
+
+Do not interpret a successful CI run as proof that the app is deployed, that offline writes work, or that all institution workflows have passed end-to-end acceptance testing.

@@ -4,6 +4,7 @@ import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
 import { timetableSlotKey } from "../../helpers/timetableSlot";
+import { timetableLessonsOverlap } from "../../helpers/timetableTime";
 import { isStaffUnavailable } from "../../helpers/staffAvailability";
 
 const schema = z.object({
@@ -13,6 +14,7 @@ const schema = z.object({
 
 type Slot = { weekday: number; lessonNumber: number; shiftNumber: number };
 type Task = { loadId: string; classId: string; staffId: string; subject: string; shiftNumber: number; grade: number; weeklyHours: number };
+type TeacherAssignment = { staffId: string; weekday: number; lessonNumber: number; shiftNumber: number };
 
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
@@ -95,6 +97,7 @@ export async function handle(request: Request) {
 
       const classSlots = new Set(existing.map((e) => timetableSlotKey(e.classId, e.shiftNumber, e.weekday, e.lessonNumber)));
       const teacherSlots = new Set(existing.map((e) => timetableSlotKey(e.staffId, e.shiftNumber, e.weekday, e.lessonNumber)));
+      const existingTeacherAssignments: TeacherAssignment[] = existing.map((e) => ({ staffId: e.staffId, weekday: e.weekday, lessonNumber: e.lessonNumber, shiftNumber: e.shiftNumber }));
       const classDayCounts = new Map<string, number>();
       const teacherDayCounts = new Map<string, number>();
       for (const e of existing) {
@@ -124,6 +127,7 @@ export async function handle(request: Request) {
       for (let attempt = 0; attempt < 120 && !best; attempt++) {
         const occupiedClass = new Set(classSlots);
         const occupiedTeacher = new Set(teacherSlots);
+        const teacherAssignments = [...existingTeacherAssignments];
         const dayClasses = new Map(classDayCounts);
         const dayTeachers = new Map(teacherDayCounts);
         const remaining = [...tasks].sort((a, b) => (scarcity.get(a)! - scarcity.get(b)!) || (b.weeklyHours - a.weeklyHours) || (Math.random() - 0.5));
@@ -136,6 +140,7 @@ export async function handle(request: Request) {
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
             !occupiedTeacher.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
+            !teacherAssignments.some((a) => a.staffId === task.staffId && a.weekday === slot.weekday && timetableLessonsOverlap(a.shiftNumber, a.lessonNumber, slot.shiftNumber, slot.lessonNumber)) &&
             !isStaffUnavailable(availability, task.staffId, slot.weekday, slot.shiftNumber, slot.lessonNumber) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
@@ -153,6 +158,7 @@ export async function handle(request: Request) {
           placed[i] = chosen;
           occupiedClass.add(timetableSlotKey(task.classId, chosen.shiftNumber, chosen.weekday, chosen.lessonNumber));
           occupiedTeacher.add(timetableSlotKey(task.staffId, chosen.shiftNumber, chosen.weekday, chosen.lessonNumber));
+          teacherAssignments.push({ staffId: task.staffId, weekday: chosen.weekday, lessonNumber: chosen.lessonNumber, shiftNumber: chosen.shiftNumber });
           const ck = `${task.classId}:${chosen.weekday}`;
           dayClasses.set(ck, (dayClasses.get(ck) || 0) + 1);
           const tk = `${task.staffId}:${chosen.weekday}`;
@@ -171,6 +177,7 @@ export async function handle(request: Request) {
         );
         const occupiedClass = new Set(classSlots);
         const occupiedTeacher = new Set(teacherSlots);
+        const teacherAssignments = [...existingTeacherAssignments];
         const dayClasses = new Map(classDayCounts);
         const dayTeachers = new Map(teacherDayCounts);
         const placed: Slot[] = new Array(orderedTasks.length);
@@ -186,6 +193,7 @@ export async function handle(request: Request) {
             slot.shiftNumber === task.shiftNumber &&
             !occupiedClass.has(timetableSlotKey(task.classId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
             !occupiedTeacher.has(timetableSlotKey(task.staffId, slot.shiftNumber, slot.weekday, slot.lessonNumber)) &&
+            !teacherAssignments.some((a) => a.staffId === task.staffId && a.weekday === slot.weekday && timetableLessonsOverlap(a.shiftNumber, a.lessonNumber, slot.shiftNumber, slot.lessonNumber)) &&
             !isStaffUnavailable(availability, task.staffId, slot.weekday, slot.shiftNumber, slot.lessonNumber) &&
             (dayClasses.get(`${task.classId}:${slot.weekday}`) || 0) < Math.min(classDailyLimit, Number(classDailyLimits[task.classId] ?? classDailyLimit)) &&
             (dayTeachers.get(`${task.staffId}:${slot.weekday}`) || 0) < Math.min(teacherDailyLimit, Number(teacherDailyLimits[task.staffId] ?? teacherDailyLimit))
@@ -208,6 +216,7 @@ export async function handle(request: Request) {
             const teacherDayKey = `${task.staffId}:${slot.weekday}`;
             occupiedClass.add(classKey);
             occupiedTeacher.add(teacherKey);
+            teacherAssignments.push({ staffId: task.staffId, weekday: slot.weekday, lessonNumber: slot.lessonNumber, shiftNumber: slot.shiftNumber });
             dayClasses.set(classDayKey, (dayClasses.get(classDayKey) || 0) + 1);
             dayTeachers.set(teacherDayKey, (dayTeachers.get(teacherDayKey) || 0) + 1);
             placed[index] = slot;
@@ -216,6 +225,7 @@ export async function handle(request: Request) {
 
             occupiedClass.delete(classKey);
             occupiedTeacher.delete(teacherKey);
+            teacherAssignments.pop();
             dayClasses.set(classDayKey, (dayClasses.get(classDayKey) || 1) - 1);
             dayTeachers.set(teacherDayKey, (dayTeachers.get(teacherDayKey) || 1) - 1);
           }

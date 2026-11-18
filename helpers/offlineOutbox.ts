@@ -124,9 +124,10 @@ export async function flushOutbox(
   let failed = 0;
 
   for (const entry of entries) {
-    // A previous page may have closed while sending. Retrying with the same id
-    // is safe only after the server endpoint implements idempotency.
-    await updateEntry(entry.id, { status: "syncing", updatedAt: Date.now() });
+    // Claim atomically so two tabs do not send the same operation at once.
+    // A two-minute lease allows recovery if the previous page was closed mid-send.
+    const claimed = await claimEntry(entry.id);
+    if (!claimed) continue;
     try {
       await send(entry.id, entry.scope, entry.payload);
       await removeOutboxEntry(entry.id);
@@ -142,6 +143,31 @@ export async function flushOutbox(
     }
   }
   return { sent, failed };
+}
+
+async function claimEntry(id: string): Promise<boolean> {
+  const database = await openOutboxDatabase();
+  try {
+    const transaction = database.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const current = await requestResult<OutboxEntry | undefined>(store.get(id));
+    if (!current) {
+      await transactionDone(transaction);
+      return false;
+    }
+
+    const leaseExpired = Date.now() - current.updatedAt > 2 * 60 * 1000;
+    if (current.status === "syncing" && !leaseExpired) {
+      await transactionDone(transaction);
+      return false;
+    }
+
+    store.put({ ...current, status: "syncing", updatedAt: Date.now() });
+    await transactionDone(transaction);
+    return true;
+  } finally {
+    database.close();
+  }
 }
 
 async function updateEntry(id: string, changes: Partial<OutboxEntry>): Promise<void> {

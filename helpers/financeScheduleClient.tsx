@@ -1,4 +1,5 @@
 import superjson from "superjson";
+import { enqueueOutbox, flushOutbox, listOutbox } from "./offlineOutbox";
 type QuotaResult = { operationCount: number; plan: "free" | "pro" };
 async function call<T>(url:string,body?:unknown):Promise<T>{const r=await fetch(url,{credentials:"include",...(body?{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(body)}:{})});const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.message||"Амалиёт иҷро нашуд.");return d as T;}
 export const getTariffs=async(institutionId:string)=>(await call<{tariffs:any[]}>(`/_api/tariffs/list?institutionId=${encodeURIComponent(institutionId)}`)).tariffs||[];
@@ -28,7 +29,38 @@ export type TimetableSettings = {
   classDailyLimits: Record<string, number>;
 };
 export const getTimetableSettings=async(institutionId:string,academicYear:string)=>(await call<{settings:TimetableSettings}>(`/_api/timetable-settings/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).settings;
-export const saveTimetableSettings=(x:{institutionId:string;academicYear:string}&TimetableSettings)=>call<{saved:boolean}>("/_api/timetable-settings/save",x);
+const TIMETABLE_SETTINGS_SCOPE = "timetable.settings.save";
+async function sendTimetableSettings(payload: {institutionId:string;academicYear:string}&TimetableSettings) {
+  const response = await fetch("/_api/timetable-settings/save", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: superjson.stringify(payload),
+  });
+  const data = superjson.parse<any>(await response.text());
+  if (!response.ok) throw new Error(data.message || "Танзимоти ҷадвал сабт нашуд.");
+}
+export async function syncTimetableSettingsOutbox() {
+  return flushOutbox(async (_operationId, scope, payload) => {
+    if (scope !== TIMETABLE_SETTINGS_SCOPE) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
+    await sendTimetableSettings(payload as {institutionId:string;academicYear:string}&TimetableSettings);
+  }, TIMETABLE_SETTINGS_SCOPE);
+}
+export const saveTimetableSettings=async(x:{institutionId:string;academicYear:string}&TimetableSettings)=>{
+  try {
+    await sendTimetableSettings(x);
+    return { saved: true as const };
+  } catch (error) {
+    const networkFailure = error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
+    if (!networkFailure) throw error;
+    const entry = await enqueueOutbox(TIMETABLE_SETTINGS_SCOPE, x);
+    await syncTimetableSettingsOutbox();
+    const pending = await listOutbox(TIMETABLE_SETTINGS_SCOPE);
+    return pending.some((item) => item.id === entry.id)
+      ? { saved: false as const, queued: true as const }
+      : { saved: true as const };
+  }
+};
 
 export const getStaffAvailability=async(institutionId:string,academicYear:string)=>(await call<{slots:any[]}>(`/_api/staff-availability/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).slots||[];
 export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;shiftNumber?:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);

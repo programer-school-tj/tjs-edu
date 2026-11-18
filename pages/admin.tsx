@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import superjson from "superjson";
-import { Check, X, RefreshCw, ShieldCheck, Clock3, Building2 } from "lucide-react";
+import { Check, X, RefreshCw, ShieldCheck, Clock3, Building2, PauseCircle, PlayCircle } from "lucide-react";
 import { BrandMark } from "../components/BrandMark";
 import { Button } from "../components/Button";
 import { Badge } from "../components/Badge";
@@ -83,6 +83,21 @@ export default function AdminPage() {
     finally { setPlanBusyId(""); }
   };
 
+  const setInstitutionStatus = async (id: string, status: "approved" | "suspended") => {
+    setBusyId(id); setError("");
+    try {
+      const response = await fetch("/_api/institutions/status", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: superjson.stringify({ institutionId: id, status }),
+      });
+      const data = superjson.parse<{ message?: string }>(await response.text());
+      if (!response.ok) throw new Error(data.message || "Ҳолати муассиса тағйир дода нашуд.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Ҳолати муассиса тағйир дода нашуд."); }
+    finally { setBusyId(""); }
+  };
+
   const saveRule = async (event: React.FormEvent) => {
     event.preventDefault(); setRuleBusy(true); setRuleError("");
     try {
@@ -114,7 +129,7 @@ export default function AdminPage() {
     <section className={styles.metrics}><div><Building2/><span>Ҳамаи муассисаҳо</span><strong>{items.length}</strong></div><div><Clock3/><span>Дар интизорӣ</span><strong>{pending.length}</strong></div><div><Check/><span>Тасдиқшуда</span><strong>{items.filter(x => x.status === "approved").length}</strong></div></section>
     {error && <div className={styles.error}>{error}</div>}
     <section className={styles.panel}><div className={styles.panelHead}><div><h2>Дархостҳои муассисаҳо</h2><p>Қарорҳо дар пойгоҳи дода сабт мешаванд.</p></div><Badge variant="warning">{pending.length} дар интизорӣ</Badge></div>
-      {loading ? <div className={styles.empty}>Рӯйхат бор мешавад...</div> : items.length === 0 ? <div className={styles.empty}>Ҳоло ягон муассиса сабт нашудааст.</div> : <div className={styles.list}>{items.map(item => <article className={styles.item} key={item.id}><div className={styles.itemTop}><div><h3>{item.name}</h3><p>{item.institutionType} · {item.region}</p></div><Badge variant={item.status === "approved" ? "success" : item.status === "rejected" ? "destructive" : "warning"}>{item.status === "approved" ? "Тасдиқшуда" : item.status === "rejected" ? "Радшуда" : "Дар интизорӣ"}</Badge></div><div className={styles.details}><span><b>Роҳбар:</b> {item.directorName}</span><span><b>Телефон:</b> {item.phone || "Нишон дода нашудааст"}</span><span><b>Сана:</b> {new Date(item.createdAt).toLocaleDateString("tg-TJ")}</span></div><div className={styles.planBox}><div><b>Нақшаи обуна:</b> <Badge variant={item.plan === "pro" ? "success" : "secondary"}>{item.plan === "pro" ? "PRO" : "FREE"}</Badge><p>{item.plan === "pro" ? (item.planExpiresAt ? `То ${new Date(item.planExpiresAt).toLocaleDateString("tg-TJ")}` : "Бе муҳлати анҷом") : "5 амалиёт дар ҳар модули маҳдуд"}</p></div><div className={styles.planActions}><input aria-label="Санаи анҷоми PRO" type="date" value={planExpiry[item.id] || (item.planExpiresAt ? new Date(item.planExpiresAt).toISOString().slice(0,10) : "")} onChange={e => setPlanExpiry(v => ({...v,[item.id]:e.target.value}))}/><Button size="sm" disabled={planBusyId === item.id || item.plan === "pro"} onClick={() => void changePlan(item.id,"pro")}>{planBusyId === item.id ? "Сабт..." : "Фаъол кардани PRO"}</Button><Button size="sm" variant="outline" disabled={planBusyId === item.id || item.plan !== "pro"} onClick={() => void changePlan(item.id,"free")}>Гузариш ба FREE</Button></div></div>{item.status === "pending" && <><textarea value={note[item.id] || ""} onChange={e => setNote(v => ({...v,[item.id]:e.target.value}))} placeholder="Шарҳи маъмур (ихтиёрӣ)"/><div className={styles.actions}><Button variant="outline" disabled={busyId === item.id} onClick={() => void review(item.id,"rejected")}><X size={15}/> Рад кардан</Button><Button disabled={busyId === item.id} onClick={() => void review(item.id,"approved")}><Check size={15}/> {busyId === item.id ? "Сабт..." : "Тасдиқ кардан"}</Button></div></>}</article>)}</div>}
+      {loading ? <div className={styles.empty}>Рӯйхат бор мешавад...</div> : items.length === 0 ? <div className={styles.empty}>Ҳоло ягон муассиса сабт нашудааст.</div> : <div className={styles.list}>{items.map(item => <article className={styles.item} key={item.id}><div className={styles.itemTop}><div><h3>{item.name}</h3><p>{item.institutionType} · {item.region}</p></div><Badge variant={item.status === "approved" ? "success" : item.status === "rejected" ? "destructive" : "warning"}>{item.status === "approved" ? "Тасдиқшуда" : item.status === "rejected" ? "Радшуда" : item.status === "suspended" ? "Боздошта шудааст" : "Дар интизорӣ"}</Badge></div><div className={styles.details}><span><b>Роҳбар:</b> {item.directorName}</span><span><b>Телефон:</b> {item.phone || "Нишон дода нашудааст"}</span><span><b>Сана:</b> {new Date(item.createdAt).toLocaleDateString("tg-TJ")}</span></div><div className={styles.planBox}><div><b>Нақшаи обуна:</b> <Badge variant={item.plan === "pro" ? "success" : "secondary"}>{item.plan === "pro" ? "PRO" : "FREE"}</Badge><p>{item.plan === "pro" ? (item.planExpiresAt ? `То ${new Date(item.planExpiresAt).toLocaleDateString("tg-TJ")}` : "Бе муҳлати анҷом") : "5 амалиёт дар ҳар модули маҳдуд"}</p></div><div className={styles.planActions}><input aria-label="Санаи анҷоми PRO" type="date" value={planExpiry[item.id] || (item.planExpiresAt ? new Date(item.planExpiresAt).toISOString().slice(0,10) : "")} onChange={e => setPlanExpiry(v => ({...v,[item.id]:e.target.value}))}/><Button size="sm" disabled={planBusyId === item.id || item.plan === "pro"} onClick={() => void changePlan(item.id,"pro")}>{planBusyId === item.id ? "Сабт..." : "Фаъол кардани PRO"}</Button><Button size="sm" variant="outline" disabled={planBusyId === item.id || item.plan !== "pro"} onClick={() => void changePlan(item.id,"free")}>Гузариш ба FREE</Button></div></div>{(item.status === "approved" || item.status === "suspended") && <div className={styles.actions}><Button variant="outline" disabled={busyId === item.id} onClick={() => void setInstitutionStatus(item.id, item.status === "approved" ? "suspended" : "approved")}>{item.status === "approved" ? <><PauseCircle size={15}/> Боздоштани муассиса</> : <><PlayCircle size={15}/> Фаъол кардани дубора</>}</Button></div>}{item.status === "pending" && <><textarea value={note[item.id] || ""} onChange={e => setNote(v => ({...v,[item.id]:e.target.value}))} placeholder="Шарҳи маъмур (ихтиёрӣ)"/><div className={styles.actions}><Button variant="outline" disabled={busyId === item.id} onClick={() => void review(item.id,"rejected")}><X size={15}/> Рад кардан</Button><Button disabled={busyId === item.id} onClick={() => void review(item.id,"approved")}><Check size={15}/> {busyId === item.id ? "Сабт..." : "Тасдиқ кардан"}</Button></div></>}</article>)}</div>}
     </section>
     <section className={styles.panel} style={{ marginTop: 24 }}>
       <div className={styles.panelHead}>

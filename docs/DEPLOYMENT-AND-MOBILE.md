@@ -4,17 +4,23 @@ This document describes the three supported delivery targets from the same codeb
 
 ## 1. Windows local edition
 
-Requirements:
-- Windows 10/11 64-bit
-- Docker Desktop with WSL2 backend
-- Internet for the first image/dependency download
+### Windows 10
 
-Steps:
-1. Extract the TJS Edu ZIP to a normal folder.
+For Windows 10, use a supported 64-bit, fully updated release with WSL2 enabled. Install the WSL2 feature and a compatible Docker Desktop version. If Docker Desktop no longer supports the Windows 10 build installed on the computer, use a supported Linux host/VM or upgrade Windows before installing TJS Edu. Do not bypass Docker's operating-system requirements.
+
+### Windows 11
+
+Use a 64-bit Windows 11 installation with virtualization enabled. Install/enable WSL2, install Docker Desktop with the WSL2 backend, and start Docker Desktop.
+
+### Installation steps (same package for Windows 10 and 11)
+
+1. Extract the TJS Edu ZIP to a normal folder, for example C:\\TJS-Edu.
 2. Start Docker Desktop and wait until it reports that Docker is running.
-3. Double-click `ОҒОЗ-ДАР-WINDOWS.bat`.
-4. Wait for the health check to finish.
-5. Open `http://localhost:8080`.
+3. Double-click ОҒОЗ-ДАР-WINDOWS.bat. The included PowerShell script checks Docker, creates local secrets if needed, starts PostgreSQL, applies database migrations, builds the app and waits for its health check.
+4. When the script reports that TJS Edu is active, open http://localhost:8080 in Edge or Chrome.
+5. To stop the app, open PowerShell in the project folder and run docker compose down.
+
+The same Windows launcher is intended for both Windows 10 and Windows 11. It is not two different app builds. If the launcher reports that Docker is unavailable, first start Docker Desktop and confirm its WSL2 engine is running.
 
 The PostgreSQL data is stored in the Docker volume `tjs_edu_db`. Do not delete this volume if you want to keep the local database. Back it up regularly:
 

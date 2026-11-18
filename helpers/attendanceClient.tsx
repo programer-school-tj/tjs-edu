@@ -1,5 +1,6 @@
 import superjson from "superjson";
 import { enqueueOutbox, flushOutbox, listOutbox } from "./offlineOutbox";
+import { getAttendanceRosterCache, saveAttendanceRosterCache } from "./attendanceRosterCache";
 
 type AttendanceInput = {
   institutionId: string;
@@ -45,8 +46,30 @@ export async function syncAttendanceOutbox(): Promise<{ sent: number; failed: nu
   }, ATTENDANCE_SCOPE);
 }
 
-export const getAttendance = async (institutionId: string, classId: string, date: string) =>
-  (await call<{ students: any[] }>(`/_api/attendance/list?institutionId=${encodeURIComponent(institutionId)}&classId=${encodeURIComponent(classId)}&date=${date}`)).students || [];
+export async function getAttendance(institutionId: string, classId: string, date: string, userId: number) {
+  const url = `/_api/attendance/list?institutionId=${encodeURIComponent(institutionId)}&classId=${encodeURIComponent(classId)}&date=${date}`;
+  try {
+    const students = (await call<{ students: any[] }>(url)).students || [];
+    // Cache only the fields needed by the attendance screen, never guardian or contact data.
+    const safeRoster = students.map(({ studentId, fullName, studentNumber, status, note }) => ({
+      studentId, fullName, studentNumber, status, note,
+    }));
+    try {
+      await saveAttendanceRosterCache(userId, institutionId, classId, date, safeRoster);
+    } catch {
+      // A cache failure must not turn a successful online read into a failed page load.
+    }
+    return safeRoster;
+  } catch (error) {
+    // Never use cached data after an authorization or validation response.
+    const isNetworkFailure = error instanceof TypeError ||
+      (typeof navigator !== "undefined" && navigator.onLine === false);
+    if (!isNetworkFailure) throw error;
+    const cached = await getAttendanceRosterCache<any[]>(userId, institutionId, classId, date);
+    if (!cached) throw error;
+    return cached.value;
+  }
+}
 
 export async function saveAttendance(input: AttendanceInput): Promise<{ saved: number; queued?: boolean }> {
   // Persist first, then send. The same outbox id is reused as the server idempotency key on retries.

@@ -18,7 +18,7 @@ export async function handle(request: Request) {
     const input = schema.parse(superjson.parse(await request.text()));
     const rawKey = request.headers.get("Idempotency-Key");
     const idempotencyKey = rawKey?.trim() || null;
-    if (idempotencyKey && (idempotencyKey.length > 200 || /[\\u0000-\\u001f\\u007f]/.test(idempotencyKey))) {
+    if (idempotencyKey && (idempotencyKey.length > 200 || /[\u0000-\u001f\u007f]/.test(idempotencyKey))) {
       return jsonResponse({ message: "Калиди амалиёт нодуруст аст." }, 400);
     }
     const requestHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");

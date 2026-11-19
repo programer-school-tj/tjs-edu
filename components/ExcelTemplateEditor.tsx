@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ExcelJS from "exceljs";
+import { createFallbackFinanceTemplate } from "../helpers/fallbackFinanceTemplate";
 import { evaluateFinanceFormula } from "../helpers/financeFormula";
 import { getFormDocument, saveFormDocument } from "../helpers/financeScheduleClient";
 import styles from "./ExcelTemplateEditor.module.css";
@@ -177,11 +178,19 @@ export function ExcelTemplateEditor(props: Props) {
     const pendingEdits = documentKeyRef.current === documentKey ? { ...dirtyCellsRef.current } : {};
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
-      const response = await fetch(props.templateUrl);
-      if (!response.ok) throw new Error("Бланкаи аслӣ кушода нашуд.");
-      const buffer = await response.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(buffer);
+      let workbook = new ExcelJS.Workbook();
+      let usedFallbackTemplate = false;
+      try {
+        const response = await fetch(props.templateUrl);
+        if (!response.ok) throw new Error("Бланкаи берунии Excel дастрас нест.");
+        const buffer = await response.arrayBuffer();
+        await workbook.xlsx.load(buffer);
+      } catch {
+        // The old template URLs belong to the Floot-hosted environment. Keep
+        // the standalone app usable when those files are unavailable.
+        workbook = createFallbackFinanceTemplate(props.documentType, props.academicYear, periodKey);
+        usedFallbackTemplate = true;
+      }
       const worksheet = workbook.getWorksheet(props.worksheetName) || workbook.worksheets[0];
       if (!worksheet) throw new Error("Варақи Excel ёфт нашуд.");
       if (props.documentType === "payroll" && /^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(periodKey)) {
@@ -215,6 +224,9 @@ export function ExcelTemplateEditor(props: Props) {
         if (/^[A-Z]{1,3}[1-9][0-9]*$/.test(address)) setCellInput(worksheet, address, value);
       });
       recalculateFormulas(worksheet);
+      if (usedFallbackTemplate) {
+        setNotice("Бланки берунии Floot дастрас нест. Шакли маҳаллии муваққатӣ истифода мешавад; барои мувофиқати дақиқ бо бланки расмӣ нусхаи аслии Excel лозим аст.");
+      }
       dirtyCellsRef.current = pendingEdits;
       documentKeyRef.current = documentKey;
       workbookRef.current = workbook;

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import ExcelJS from "exceljs";
 import { createFallbackFinanceTemplate } from "../helpers/fallbackFinanceTemplate";
 
 test("creates a local tariffing workbook with mapped employee columns", () => {
@@ -28,4 +29,15 @@ test("creates a local timetable workbook", () => {
   assert.ok(sheet);
   assert.equal(sheet?.getCell("A1").value, "ҶАДВАЛИ ДАРСӢ");
   assert.equal(sheet?.getCell("E4").value, "Омӯзгор");
+});
+
+test("all fallback workbooks export to valid XLSX and reopen", async () => {
+  for (const type of ["tariffing", "payroll", "timetable"] as const) {
+    const original = createFallbackFinanceTemplate(type, "2026-2027", "2026-11");
+    const buffer = await original.xlsx.writeBuffer();
+    const reopened = new ExcelJS.Workbook();
+    await reopened.xlsx.load(buffer);
+    assert.equal(reopened.worksheets.length, 1);
+    assert.ok(reopened.worksheets[0].rowCount >= 142);
+  }
 });

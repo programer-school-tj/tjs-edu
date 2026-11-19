@@ -25,6 +25,34 @@ type Props = {
 };
 type MergeInfo = { startRow: number; endRow: number; startCol: number; endCol: number };
 
+const TEMPLATE_DB_NAME = "tjs-edu-template-library";
+function openTemplateDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(TEMPLATE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("templates")) request.result.createObjectStore("templates");
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Анбори бланкҳо кушода нашуд."));
+  });
+}
+async function getStoredTemplate(type: DocumentType): Promise<ArrayBuffer | null> {
+  const db = await openTemplateDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("templates", "readonly").objectStore("templates").get(type);
+    request.onsuccess = () => { db.close(); resolve(request.result instanceof ArrayBuffer ? request.result : null); };
+    request.onerror = () => { db.close(); reject(request.error); };
+  });
+}
+async function saveStoredTemplate(type: DocumentType, data: ArrayBuffer): Promise<void> {
+  const db = await openTemplateDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("templates", "readwrite").objectStore("templates").put(data, type);
+    request.onsuccess = () => { db.close(); resolve(); };
+    request.onerror = () => { db.close(); reject(request.error || new Error("Бланк нигоҳ дошта нашуд.")); };
+  });
+}
+
 function colLetter(n: number) {
   let value = n;
   let result = "";
@@ -180,11 +208,18 @@ export function ExcelTemplateEditor(props: Props) {
     try {
       let workbook = new ExcelJS.Workbook();
       let usedFallbackTemplate = false;
+      let usedInstalledTemplate = false;
       try {
-        const response = await fetch(props.templateUrl);
-        if (!response.ok) throw new Error("Бланкаи берунии Excel дастрас нест.");
-        const buffer = await response.arrayBuffer();
-        await workbook.xlsx.load(buffer);
+        const installedTemplate = await getStoredTemplate(props.documentType);
+        if (installedTemplate) {
+          await workbook.xlsx.load(installedTemplate);
+          usedInstalledTemplate = true;
+        } else {
+          const response = await fetch(props.templateUrl);
+          if (!response.ok) throw new Error("Бланкаи берунии Excel дастрас нест.");
+          const buffer = await response.arrayBuffer();
+          await workbook.xlsx.load(buffer);
+        }
       } catch {
         // The old template URLs belong to the Floot-hosted environment. Keep
         // the standalone app usable when those files are unavailable.
@@ -224,8 +259,10 @@ export function ExcelTemplateEditor(props: Props) {
         if (/^[A-Z]{1,3}[1-9][0-9]*$/.test(address)) setCellInput(worksheet, address, value);
       });
       recalculateFormulas(worksheet);
-      if (usedFallbackTemplate) {
-        setNotice("Бланки берунии Floot дастрас нест. Шакли маҳаллии муваққатӣ истифода мешавад; барои мувофиқати дақиқ бо бланки расмӣ нусхаи аслии Excel лозим аст.");
+      if (usedInstalledTemplate) {
+        setNotice("Бланки аслии муассиса аз хотираи ҳамин дастгоҳ кушода шуд.");
+      } else if (usedFallbackTemplate) {
+        setNotice("Бланки расмӣ ҳанӯз насб нашудааст. Барои истифодаи шакли аслӣ тугмаи «Насби бланки аслӣ»-ро пахш карда, файли Excel-ро интихоб кунед.");
       }
       dirtyCellsRef.current = pendingEdits;
       documentKeyRef.current = documentKey;
@@ -303,11 +340,40 @@ export function ExcelTemplateEditor(props: Props) {
     } finally { setBusy(false); }
   };
 
+  const installTemplate = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) throw new Error("Фақат файли .xlsx интихоб кунед.");
+      const buffer = await file.arrayBuffer();
+      const check = new ExcelJS.Workbook();
+      await check.xlsx.load(buffer);
+      const sheet = check.getWorksheet(props.worksheetName) || check.worksheets[0];
+      if (!sheet) throw new Error("Дар файли интихобшуда варақи Excel нест.");
+      if (props.documentType === "timetable" && sheet.name !== props.worksheetName) {
+        throw new Error("Варақи ҷадвали дарсӣ бояд «" + props.worksheetName + "» бошад.");
+      }
+      await saveStoredTemplate(props.documentType, buffer);
+      setNotice("Бланки аслӣ насб шуд. Он дар ҳамин дастгоҳ нигоҳ дошта мешавад.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Бланк насб карда нашуд.");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  };
+
   return <section className={styles.editor}>
     <style>{`@page { size: A4 ${props.orientation || "landscape"}; margin: 6mm; } @media print { html, body { background: #fff !important; } body, body * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .${styles.sheetScroll} { zoom: ${props.printScale ?? 0.7}; overflow: visible !important; max-height: none !important; } .${styles.sheet} { border-collapse: collapse !important; } .${styles.sheet} tr, .${styles.sheet} td { break-inside: avoid; page-break-inside: avoid; } }`}</style>
     <div className={styles.toolbar}>
       <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Маълумоти кормандон пешакӣ пур мешавад. Ҳуҷайраҳоро таҳрир кунед; барои формула бо = оғоз намоед, мисол: =J5*1.25 ё =ROUND(J5*1.25,2).</p></div>
       <div className={styles.actions}>
+        <label className={styles.secondary} style={{ display: "inline-flex", alignItems: "center", cursor: busy ? "not-allowed" : "pointer" }}>
+          Насби бланки аслӣ
+          <input type="file" accept=".xlsx" onChange={installTemplate} disabled={busy} style={{ display: "none" }} />
+        </label>
         <button type="button" className={styles.secondary} onClick={() => void load()} disabled={busy}>↻ Аз нав кушодан</button>
         <button type="button" onClick={() => void save()} disabled={busy || !ready}>{busy ? "Лаҳза..." : "Сабт"}</button>
         <button type="button" className={styles.export} onClick={() => void exportWorkbook()} disabled={busy || !ready}>Excel ↓</button>

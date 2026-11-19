@@ -27,29 +27,32 @@ test("institution directors cannot read or create staff records in another insti
       VALUES (${`tenant-api-${suffix}@example.test`}, 'Tenant API Test', 'user')
       RETURNING id
     `;
-    userId = Number(user.id);
+    const testUserId = Number(user.id);
+    userId = testUserId;
 
     const [schoolA] = await sql`
       INSERT INTO institutions (name, institution_type, region, director_name, created_by, status)
-      VALUES (${`Tenant API A ${suffix}`}, 'school', 'Khatlon', 'Director A', ${userId}, 'approved')
+      VALUES (${`Tenant API A ${suffix}`}, 'school', 'Khatlon', 'Director A', ${testUserId}, 'approved')
       RETURNING id
     `;
-    institutionA = schoolA.id;
+    const institutionAId: string = schoolA.id;
+    institutionA = institutionAId;
 
     const [schoolB] = await sql`
       INSERT INTO institutions (name, institution_type, region, director_name, created_by, status)
-      VALUES (${`Tenant API B ${suffix}`}, 'school', 'Khatlon', 'Director B', ${userId}, 'approved')
+      VALUES (${`Tenant API B ${suffix}`}, 'school', 'Khatlon', 'Director B', ${testUserId}, 'approved')
       RETURNING id
     `;
-    institutionB = schoolB.id;
+    const institutionBId: string = schoolB.id;
+    institutionB = institutionBId;
 
     await sql`
       INSERT INTO institution_memberships (institution_id, user_id, role, is_active)
-      VALUES (${institutionA}, ${userId}, 'director', true)
+      VALUES (${institutionAId}, ${testUserId}, 'director', true)
     `;
     await sql`
       INSERT INTO sessions (id, user_id, expires_at)
-      VALUES (${sessionId}, ${userId}, now() + interval '10 minutes')
+      VALUES (${sessionId}, ${testUserId}, now() + interval '10 minutes')
     `;
 
     const token = await new SignJWT({
@@ -68,10 +71,10 @@ test("institution directors cannot read or create staff records in another insti
       { headers: { cookie: `tjs_edu_session=${token}` } },
     );
 
-    const ownInstitutionResponse = await listStaff(request(institutionA));
+    const ownInstitutionResponse = await listStaff(request(institutionAId));
     assert.equal(ownInstitutionResponse.status, 200, "director should access their own approved institution");
 
-    const foreignInstitutionResponse = await listStaff(request(institutionB));
+    const foreignInstitutionResponse = await listStaff(request(institutionBId));
     assert.equal(foreignInstitutionResponse.status, 403, "director must not read another institution's staff");
 
     const createResponse = await createStaff(new Request("http://localhost/_api/staff/create", {
@@ -81,7 +84,7 @@ test("institution directors cannot read or create staff records in another insti
         "content-type": "application/json",
       },
       body: superjson.stringify({
-        institutionId: institutionB,
+        institutionId: institutionBId,
         fullName: "Unauthorized Test Employee",
         positionTitle: "Teacher",
         employmentType: "teacher",
@@ -90,9 +93,9 @@ test("institution directors cannot read or create staff records in another insti
     assert.equal(createResponse.status, 403, "director must not create staff in another institution");
   } finally {
     if (sessionId) await sql`DELETE FROM sessions WHERE id = ${sessionId}`.catch(() => undefined);
-    if (institutionA) await sql`DELETE FROM institutions WHERE id = ${institutionA}`.catch(() => undefined);
-    if (institutionB) await sql`DELETE FROM institutions WHERE id = ${institutionB}`.catch(() => undefined);
-    if (userId) await sql`DELETE FROM users WHERE id = ${userId}`.catch(() => undefined);
+    if (institutionA) await sql`DELETE FROM institutions WHERE id = ${institutionAId}`.catch(() => undefined);
+    if (institutionB) await sql`DELETE FROM institutions WHERE id = ${institutionBId}`.catch(() => undefined);
+    if (userId) await sql`DELETE FROM users WHERE id = ${testUserId}`.catch(() => undefined);
     await sql.end({ timeout: 5 });
   }
 });

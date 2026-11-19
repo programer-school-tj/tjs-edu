@@ -202,7 +202,7 @@ export function ExcelTemplateEditor(props: Props) {
 
   const load = useCallback(async () => {
     if (!props.institutionId) return;
-    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey, props.templateVersion || "2026-11-07-v2"].join("|");
+    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey, props.templateVersion || "2026-11-19-original-forms-v1"].join("|");
     const pendingEdits = documentKeyRef.current === documentKey ? { ...dirtyCellsRef.current } : {};
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
@@ -242,7 +242,7 @@ export function ExcelTemplateEditor(props: Props) {
       });
       const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey);
       const storedVersion = String(saved?.templateVersion || "");
-      const currentVersion = props.templateVersion || "2026-11-07-v2";
+      const currentVersion = props.templateVersion || "2026-11-19-original-forms-v1";
       const storedCells = (saved?.payload?.cells || {}) as Record<string, string>;
       const compatibleCells = !storedVersion || storedVersion === currentVersion;
       const cells = compatibleCells ? storedCells : {};
@@ -309,7 +309,7 @@ export function ExcelTemplateEditor(props: Props) {
       // Persist only user-edited cells. This keeps auto-filled staff data dynamic
       // for newly added employees while preserving intentional manual clearing.
       const cells = { ...savedCellsRef.current, ...dirtyCellsRef.current };
-      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: props.templateVersion || "2026-11-07-v2", cells });
+      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: props.templateVersion || "2026-11-19-original-forms-v1", cells });
       savedCellsRef.current = cells;
       dirtyCellsRef.current = {};
       setDirty(false); setNotice("Тағйиротҳо дар пойгоҳи додаҳо сабт шуданд.");

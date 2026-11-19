@@ -42,7 +42,7 @@ Service Worker интерфейс ва файлҳои статикиро кеш 
 - Endpoint-ҳои санҷидашудаи кормандон, тарификатсия ва маош узвияти директорро барои муассисаи интихобшуда месанҷанд; сабти ҷадвал низ иҷозати директорро месанҷад.
 - Ин муҳофизатҳо қадами мусбатанд, аммо санҷиши пурраи ҳамаи endpoint-ҳо ва санҷишҳои манфии cross-tenant ҳанӯз лозиманд. Мавҷуд будани foreign key танҳо иҷозати API-ро иваз намекунад.
 
-### 7. Баррасии иҷозатҳои API ва бақайдгирии муассиса
+### 6. Баррасии иҷозатҳои API ва бақайдгирии муассиса
 
 Файлҳои зерин дар branch-и корӣ хонда шуданд: `endpoints/institutions/create_POST.ts`, `endpoints/institutions/list_GET.ts`, `endpoints/staff/list_GET.ts`, `endpoints/staff/create_POST.ts`, `endpoints/classes/create_POST.ts`, `endpoints/tariffs/create_POST.ts`, `endpoints/payroll/create_POST.ts`, `endpoints/payroll/list_GET.ts`, `endpoints/timetable/create_POST.ts` ва `endpoints/timetable/list_GET.ts`.
 
@@ -59,7 +59,7 @@ Service Worker интерфейс ва файлҳои статикиро кеш 
 
 **Ҳолат:** иҷозатҳои як қисми асосии endpoint-ҳо дар код дида шуданд; амнияти пурраи бисёрмуассисавӣ ҳанӯз тасдиқ нашудааст.
 
-### 6. Service Worker ва маҳдудияти офлайн
+### 7. Service Worker ва маҳдудияти офлайн
 
 - Файли `public/sw.js` shell-и барнома ва баъзе дороиҳои статикӣ (script/style/font/image)-ро кеш мекунад; ҳангоми қатъи интернет саҳифаи `index.html`-ро бармегардонад.
 - Дар ин Service Worker нигоҳдории маълумоти API, IndexedDB, навбати тағйирот ё механизми sync дида нашуд.

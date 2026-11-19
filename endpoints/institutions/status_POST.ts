@@ -47,7 +47,9 @@ export async function handle(request: Request) {
         ? "institution.suspended"
         : existing.status === "pending"
           ? "institution.approved"
-          : "institution.reactivated";
+          : existing.status === "suspended"
+            ? "institution.reactivated"
+            : "institution.approval_confirmed";
 
       await trx.insertInto("institutionAuditLogs").values({
         institutionId: updated.id,

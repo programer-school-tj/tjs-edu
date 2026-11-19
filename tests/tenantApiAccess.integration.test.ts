@@ -7,7 +7,7 @@ import superjson from "superjson";
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 
-test("institution directors cannot read or create staff records in another institution", {
+test("institution directors cannot read another institution data or create its staff records", {
   skip: !databaseUrl ? "Set TEST_DATABASE_URL or DATABASE_URL to run API integration tests" : false,
 }, async () => {
   process.env.DATABASE_URL = databaseUrl!;
@@ -58,21 +58,30 @@ test("institution directors cannot read or create staff records in another insti
       lastAccessed: Date.now(),
     }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("10m").sign(new TextEncoder().encode(secret));
 
-    const [{ handle: listStaff }] = await Promise.all([
-      import("../endpoints/staff/list_GET"),
-    ]);
+    const readEndpoints = [
+      ["staff", (await import("../endpoints/staff/list_GET")).handle],
+      ["classes", (await import("../endpoints/classes/list_GET")).handle],
+      ["students", (await import("../endpoints/students/list_GET")).handle],
+      ["tariffs", (await import("../endpoints/tariffs/list_GET")).handle],
+      ["payroll", (await import("../endpoints/payroll/list_GET")).handle],
+      ["timetable", (await import("../endpoints/timetable/list_GET")).handle],
+    ] as const;
+
+    for (const [name, handle] of readEndpoints) {
+      const ownResponse = await handle(new Request(
+        `http://localhost/_api/${name}/list?institutionId=${institutionA!}`,
+        { headers: { cookie: `tjs_edu_session=${token}` } },
+      ));
+      assert.equal(ownResponse.status, 200, `director should read own institution's ${name}`);
+
+      const foreignResponse = await handle(new Request(
+        `http://localhost/_api/${name}/list?institutionId=${institutionB!}`,
+        { headers: { cookie: `tjs_edu_session=${token}` } },
+      ));
+      assert.equal(foreignResponse.status, 403, `director must not read another institution's ${name}`);
+    }
+
     const { handle: createStaff } = await import("../endpoints/staff/create_POST");
-
-    const request = (institutionId: string) => new Request(
-      `http://localhost/_api/staff/list?institutionId=${institutionId}`,
-      { headers: { cookie: `tjs_edu_session=${token}` } },
-    );
-
-    const ownInstitutionResponse = await listStaff(request(institutionA!));
-    assert.equal(ownInstitutionResponse.status, 200, "director should access their own approved institution");
-
-    const foreignInstitutionResponse = await listStaff(request(institutionB!));
-    assert.equal(foreignInstitutionResponse.status, 403, "director must not read another institution's staff");
 
     const createResponse = await createStaff(new Request("http://localhost/_api/staff/create", {
       method: "POST",

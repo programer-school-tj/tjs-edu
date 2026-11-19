@@ -81,6 +81,33 @@ test("institution directors cannot read another institution data or create its s
       assert.equal(foreignResponse.status, 403, `director must not read another institution's ${name}`);
     }
 
+    const { handle: listAttendance } = await import("../endpoints/attendance/list_GET");
+    const attendanceClassId = randomUUID();
+    for (const institutionId of [institutionA!, institutionB!]) {
+      const response = await listAttendance(new Request(
+        `http://localhost/_api/attendance/list?institutionId=${institutionId}&classId=${attendanceClassId}&date=2026-11-19`,
+        { headers: { cookie: `tjs_edu_session=${token}` } },
+      ));
+      assert.equal(
+        response.status,
+        institutionId === institutionA ? 200 : 403,
+        "attendance API must enforce institution membership",
+      );
+    }
+
+    const { handle: loadForm } = await import("../endpoints/forms/load_GET");
+    for (const institutionId of [institutionA!, institutionB!]) {
+      const response = await loadForm(new Request(
+        `http://localhost/_api/forms/load?institutionId=${institutionId}&documentType=payroll&academicYear=2026-2027&periodKey=2026-11`,
+        { headers: { cookie: `tjs_edu_session=${token}` } },
+      ));
+      assert.equal(
+        response.status,
+        institutionId === institutionA ? 200 : 403,
+        "saved form API must enforce institution membership",
+      );
+    }
+
     const { handle: createStaff } = await import("../endpoints/staff/create_POST");
 
     const createResponse = await createStaff(new Request("http://localhost/_api/staff/create", {

@@ -42,6 +42,9 @@ Service Worker интерфейс ва файлҳои статикиро кеш 
 - Endpoint-ҳои санҷидашудаи кормандон, тарификатсия ва маош узвияти директорро барои муассисаи интихобшуда месанҷанд; сабти ҷадвал низ иҷозати директорро месанҷад.
 - Ин муҳофизатҳо қадами мусбатанд, аммо санҷиши пурраи ҳамаи endpoint-ҳо ва санҷишҳои манфии cross-tenant ҳанӯз лозиманд. Мавҷуд будани foreign key танҳо иҷозати API-ро иваз намекунад.
 
+- Мигратсияи нави `015_attendance_student_class_integrity.sql` робитаи давомотро бо се сутун (`institution_id + class_id + student_id`) месанҷад. Ин кафолат медиҳад, ки хонанда на танҳо ба ҳамон муассиса, балки маҳз ба ҳамон синф тааллуқ дошта бошад.
+- Барои ин қоида санҷиши сохтории SQL дар `tests/attendanceClassIntegrity.test.ts` илова шуд. Ин санҷиш матни мигратсияро месанҷад; иҷрои воқеии маҳдудият бо PostgreSQL ҳанӯз бояд дар санҷиши интегратсионӣ тасдиқ шавад.
+
 ### 6. Баррасии иҷозатҳои API ва бақайдгирии муассиса
 
 Файлҳои зерин дар branch-и корӣ хонда шуданд: `endpoints/institutions/create_POST.ts`, `endpoints/institutions/list_GET.ts`, `endpoints/staff/list_GET.ts`, `endpoints/staff/create_POST.ts`, `endpoints/classes/create_POST.ts`, `endpoints/tariffs/create_POST.ts`, `endpoints/payroll/create_POST.ts`, `endpoints/payroll/list_GET.ts`, `endpoints/timetable/create_POST.ts` ва `endpoints/timetable/list_GET.ts`.

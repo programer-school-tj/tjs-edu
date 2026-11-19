@@ -23,7 +23,7 @@ export function createFallbackFinanceTemplate(
         title: "ТАРИФИКАТСИЯИ ОМӮЗГОРОН",
         columns: ["№", "Ному насаб", "Вазифа", "Маълумот", "Категория", "Соатҳо", "Меъёр", "Фан", "Иловапулӣ", "Музди моҳона"],
         widths: [6, 32, 20, 18, 18, 11, 12, 20, 14, 17],
-        lastColumn: 10,
+        lastColumn: 26,
       }
     : documentType === "payroll"
       ? {
@@ -31,16 +31,18 @@ export function createFallbackFinanceTemplate(
           title: "ТАБЕЛИ МАОШ",
           columns: ["№", "Ному насаб", "Вазифа", "Маълумот", "Категория", "Фан", "Музди асосӣ", "", "", "", "", "", "", "", "", "", "Санҷиши дафтар", "Роҳбарии синф", "Роҳбари иттиҳодияи методӣ", "", "", "Маоши умумӣ", "Рӯзҳои корӣ"],
           widths: [6, 30, 18, 15, 15, 18, 15, 10, 10, 10, 10, 10, 10, 10, 10, 10, 16, 16, 22, 10, 10, 17, 13],
-          lastColumn: 23,
+          lastColumn: 30,
         }
       : {
           name: "Ҷадвали дарсӣ",
           title: "ҶАДВАЛИ ДАРСӢ",
           columns: ["Синф", "Рӯз", "Соати дарс", "Фан", "Омӯзгор", "Кабинет"],
           widths: [14, 16, 16, 24, 30, 14],
-          lastColumn: 6,
+          lastColumn: 27,
         };
 
+  while (config.columns.length < config.lastColumn) config.columns.push("");
+  while (config.widths.length < config.lastColumn) config.widths.push(10);
   const sheet = workbook.addWorksheet(config.name);
   config.widths.forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   const lastColumnLetter = sheet.getColumn(config.lastColumn).letter;
@@ -90,7 +92,7 @@ export function createFallbackFinanceTemplate(
   sheet.autoFilter = { from: "A4", to: `${lastColumnLetter}142` };
   (sheet as any).pageSetup = {
     paperSize: 9,
-    orientation: "landscape",
+    orientation: documentType === "timetable" ? "portrait" : "landscape",
     fitToPage: true,
     fitToWidth: 1,
     fitToHeight: 0,

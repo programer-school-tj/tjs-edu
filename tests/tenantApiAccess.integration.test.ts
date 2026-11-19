@@ -108,6 +108,50 @@ test("institution directors cannot read another institution data or create its s
       );
     }
 
+    const postForeign = async (name: string, handle: (request: Request) => Promise<Response>, payload: unknown) =>
+      handle(new Request(`http://localhost/_api/${name}`, {
+        method: "POST",
+        headers: {
+          cookie: `tjs_edu_session=${token}`,
+          "content-type": "application/json",
+        },
+        body: superjson.stringify(payload),
+      }));
+
+    const writeCases: Array<[string, (request: Request) => Promise<Response>, unknown]> = [
+      ["classes", (await import("../endpoints/classes/create_POST")).handle, {
+        institutionId: institutionB!, grade: 5, section: "A", academicYear: "2026-2027",
+      }],
+      ["students", (await import("../endpoints/students/create_POST")).handle, {
+        institutionId: institutionB!, classId: randomUUID(), fullName: "Unauthorized Student",
+      }],
+      ["tariffs", (await import("../endpoints/tariffs/create_POST")).handle, {
+        institutionId: institutionB!, positionTitle: "Teacher", monthlyBase: 1000,
+        effectiveFrom: "2026-09-01", academicYear: "2026-2027",
+      }],
+      ["payroll", (await import("../endpoints/payroll/create_POST")).handle, {
+        institutionId: institutionB!, staffId: randomUUID(), payrollMonth: "2026-11",
+        baseAmount: 1000,
+      }],
+      ["attendance", (await import("../endpoints/attendance/save_POST")).handle, {
+        institutionId: institutionB!, classId: randomUUID(), date: "2026-11-19",
+        records: [{ studentId: randomUUID(), status: "present" }],
+      }],
+      ["forms", (await import("../endpoints/forms/save_POST")).handle, {
+        institutionId: institutionB!, documentType: "payroll", academicYear: "2026-2027",
+        periodKey: "2026-11", cells: { A5: "test" },
+      }],
+      ["timetable", (await import("../endpoints/timetable/create_POST")).handle, {
+        institutionId: institutionB!, classId: randomUUID(), staffId: randomUUID(),
+        subject: "Informatics", weekday: 1, lessonNumber: 1, academicYear: "2026-2027",
+      }],
+    ];
+
+    for (const [name, handle, payload] of writeCases) {
+      const response = await postForeign(name, handle, payload);
+      assert.equal(response.status, 403, `director must not create data in another institution's ${name}`);
+    }
+
     const { handle: createStaff } = await import("../endpoints/staff/create_POST");
 
     const createResponse = await createStaff(new Request("http://localhost/_api/staff/create", {

@@ -1,8 +1,10 @@
 import superjson from "superjson";
+import { enqueueOutbox, flushOutbox, listOutbox } from "./offlineOutbox";
 type QuotaResult = { operationCount: number; plan: "free" | "pro" };
 async function call<T>(url:string,body?:unknown):Promise<T>{const r=await fetch(url,{credentials:"include",...(body?{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(body)}:{})});const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.message||"Амалиёт иҷро нашуд.");return d as T;}
 export const getTariffs=async(institutionId:string)=>(await call<{tariffs:any[]}>(`/_api/tariffs/list?institutionId=${encodeURIComponent(institutionId)}`)).tariffs||[];
 export const addTariff=(x:any)=>call<QuotaResult & {tariff:any}>("/_api/tariffs/create",x);
+export const adjustTariffs=(x:{institutionId:string;academicYear:string;effectiveFrom:string;adjustmentPercent:number;positionTitle?:string;staffId?:string;sourceTitle:string;sourceReference?:string;notes?:string})=>call<QuotaResult & {changed:any[];changedCount:number}>("/_api/tariffs/adjust",x);
 export const getPayroll=async(institutionId:string,month:string)=>(await call<{entries:any[]}>(`/_api/payroll/list?institutionId=${encodeURIComponent(institutionId)}&month=${month}`)).entries||[];
 export const addPayroll=(x:any)=>call<QuotaResult & {entry:any}>("/_api/payroll/create",x);
 export const getTimetable=async(institutionId:string,academicYear:string)=>(await call<{entries:any[]}>(`/_api/timetable/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${academicYear}`)).entries||[];
@@ -17,5 +19,50 @@ export const generateTimetable=(x:{institutionId:string;academicYear:string})=>c
 
 export const importTimetableRows=(x:{institutionId:string;academicYear:string;rows:Array<{grade:number;section:string;weekday:number;lessonNumber:number;subject:string;teacherName:string;room?:string}>})=>call<{imported:number;operationCount:number;plan:"free"|"pro"}>("/_api/timetable/import",x);
 
+export type TimetableSettings = {
+  schoolDays: number;
+  maxLessonsPerDay: number;
+  teacherDailyLimit: number;
+  classDailyLimit: number;
+  shiftSplitGrade: number;
+  teacherDailyLimits: Record<string, number>;
+  classDailyLimits: Record<string, number>;
+};
+export const getTimetableSettings=async(institutionId:string,academicYear:string)=>(await call<{settings:TimetableSettings}>(`/_api/timetable-settings/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).settings;
+const TIMETABLE_SETTINGS_SCOPE = "timetable.settings.save";
+async function sendTimetableSettings(payload: {institutionId:string;academicYear:string}&TimetableSettings) {
+  const response = await fetch("/_api/timetable-settings/save", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: superjson.stringify(payload),
+  });
+  const data = superjson.parse<any>(await response.text());
+  if (!response.ok) throw new Error(data.message || "Танзимоти ҷадвал сабт нашуд.");
+}
+export async function syncTimetableSettingsOutbox() {
+  return flushOutbox(async (_operationId, scope, payload) => {
+    if (scope !== TIMETABLE_SETTINGS_SCOPE) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
+    await sendTimetableSettings(payload as {institutionId:string;academicYear:string}&TimetableSettings);
+  }, TIMETABLE_SETTINGS_SCOPE);
+}
+export const saveTimetableSettings=async(x:{institutionId:string;academicYear:string}&TimetableSettings)=>{
+  try {
+    await sendTimetableSettings(x);
+    return { saved: true as const };
+  } catch (error) {
+    const networkFailure = error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
+    if (!networkFailure) throw error;
+    const entry = await enqueueOutbox(TIMETABLE_SETTINGS_SCOPE, x);
+    await syncTimetableSettingsOutbox();
+    const pending = await listOutbox(TIMETABLE_SETTINGS_SCOPE);
+    return pending.some((item) => item.id === entry.id)
+      ? { saved: false as const, queued: true as const }
+      : { saved: true as const };
+  }
+};
+
 export const getStaffAvailability=async(institutionId:string,academicYear:string)=>(await call<{slots:any[]}>(`/_api/staff-availability/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).slots||[];
-export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);
+export const saveStaffAvailability=(x:{institutionId:string;staffId:string;academicYear:string;slots:Array<{weekday:number;shiftNumber?:number;lessonNumber:number}>})=>call<{saved:number}>("/_api/staff-availability/save",x);
+
+export const previewPayroll = (x: any) => call<{ preview: any }>("/_api/payroll/preview", x);

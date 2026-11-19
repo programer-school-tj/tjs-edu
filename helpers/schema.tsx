@@ -71,6 +71,26 @@ export interface InstitutionClasses {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface FinanceRules {
+  appliesTo: Generated<Json>;
+  calculationType: string;
+  category: string;
+  createdAt: Generated<Timestamp>;
+  createdBy: number | null;
+  effectiveFrom: Timestamp;
+  effectiveTo: Timestamp | null;
+  formula: string | null;
+  id: Generated<string>;
+  isActive: Generated<boolean>;
+  notes: string | null;
+  numericValue: Numeric | null;
+  ruleKey: string;
+  sourceReference: string | null;
+  sourceTitle: string;
+  title: string;
+  updatedAt: Generated<Timestamp>;
+}
+
 export interface InstitutionFormDocuments {
   academicYear: Generated<string>;
   createdAt: Generated<Timestamp>;
@@ -110,19 +130,32 @@ export interface InstitutionMemberships {
 }
 
 export interface InstitutionPayrollEntries {
+  financeRuleSnapshot: Generated<Json>;
   allowances: Generated<Numeric>;
   baseAmount: Generated<Numeric>;
+  classHeadAllowance: Generated<Numeric>;
   createdAt: Generated<Timestamp>;
   createdBy: number;
   deductions: Generated<Numeric>;
   grossAmount: Generated<Numeric>;
   id: Generated<string>;
+  incomeTaxDeduction: Generated<Numeric>;
   institutionId: string;
+  methodicalAssociationHeadAllowance: Generated<Numeric>;
   netAmount: Generated<Numeric>;
+  newspaperDeduction: Generated<Numeric>;
+  notebookCheckingAllowance: Generated<Numeric>;
   notes: string | null;
+  otherAllowances: Generated<Numeric>;
+  otherDeductions: Generated<Numeric>;
+  partyDuesDeduction: Generated<Numeric>;
   payrollMonth: Timestamp;
   staffId: string;
   tariffId: string | null;
+  tradeUnionDuesDeduction: Generated<Numeric>;
+  workRate: Generated<Numeric>;
+  weeklyHours: Generated<Numeric>;
+  workingDays: Generated<number>;
   updatedAt: Generated<Timestamp>;
 }
 
@@ -163,6 +196,7 @@ export interface InstitutionStaffAvailability {
   id: Generated<string>;
   institutionId: string;
   lessonNumber: number;
+  shiftNumber: number;
   staffId: string;
   weekday: number;
 }
@@ -217,6 +251,20 @@ export interface InstitutionTariffs {
   sourceReference: string | null;
   sourceTitle: string | null;
   weeklyHours: Numeric | null;
+}
+
+export interface InstitutionTimetableSettings {
+  academicYear: string;
+  classDailyLimit: number;
+  classDailyLimits: Generated<Json>;
+  institutionId: string;
+  maxLessonsPerDay: number;
+  schoolDays: number;
+  shiftSplitGrade: number;
+  teacherDailyLimit: number;
+  teacherDailyLimits: Generated<Json>;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: number | null;
 }
 
 export interface InstitutionTeachingLoads {
@@ -291,6 +339,7 @@ export interface Users {
 }
 
 export interface DB {
+  financeRules: FinanceRules;
   institutionAttendance: InstitutionAttendance;
   institutionAuditLogs: InstitutionAuditLogs;
   institutionClasses: InstitutionClasses;
@@ -305,6 +354,7 @@ export interface DB {
   institutionStudents: InstitutionStudents;
   institutionTariffs: InstitutionTariffs;
   institutionTimetableEntries: InstitutionTimetableEntries;
+  institutionTimetableSettings: InstitutionTimetableSettings;
   institutionTeachingLoads: InstitutionTeachingLoads;
   loginAttempts: LoginAttempts;
   passwordResetCodes: PasswordResetCodes;

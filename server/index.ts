@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { db } from "../helpers/db";
 
 const port = Number(process.env.API_PORT || 3001);
 const root = new URL("../endpoints/", import.meta.url);
@@ -68,8 +69,15 @@ async function serveWeb(pathname: string, method: string, outgoing: import("node
 const server = createServer(async (incoming, outgoing) => {
   const url = new URL(incoming.url || "/", `http://${incoming.headers.host || "localhost"}`);
   if (url.pathname === "/health") {
-    outgoing.writeHead(200, { "content-type": "application/json" });
-    outgoing.end(JSON.stringify({ ok: true, service: "tjs-edu-api" }));
+    try {
+      // Check the database and the initial schema, not merely that Node is listening.
+      await db.selectFrom("users").select("id").limit(0).execute();
+      outgoing.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      outgoing.end(JSON.stringify({ ok: true, service: "tjs-edu-api", database: "connected" }));
+    } catch {
+      outgoing.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
+      outgoing.end(JSON.stringify({ ok: false, service: "tjs-edu-api", database: "unavailable" }));
+    }
     return;
   }
 

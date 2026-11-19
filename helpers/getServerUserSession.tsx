@@ -5,21 +5,18 @@ import {
   CleanupProbability,
   getServerSessionOrThrow,
   NotAuthenticatedError,
-  SessionExpirationSeconds,
 } from "./getSetServerSession";
 
 export async function getServerUserSession(request: Request) {
   const session = await getServerSessionOrThrow(request);
+  const now = new Date();
 
-  // Occasionally clean up expired sessions
+  // Occasionally remove sessions whose server-side expiry has passed.
   if (Math.random() < CleanupProbability) {
-    const expirationDate = new Date(
-      Date.now() - SessionExpirationSeconds * 1000
-    );
     try {
       await db
         .deleteFrom("sessions")
-        .where("lastAccessed", "<", expirationDate)
+        .where("expiresAt", "<", now)
         .execute();
     } catch (cleanupError) {
       // Log but don't fail the request if cleanup fails
@@ -27,7 +24,8 @@ export async function getServerUserSession(request: Request) {
     }
   }
 
-  // Query the sessions and users tables in a single join query
+  // The database is the source of truth for revocation and expiry.
+  // A valid JWT alone must never revive an expired or deleted session.
   const results = await db
     .selectFrom("sessions")
     .innerJoin("users", "sessions.userId", "users.id")
@@ -42,6 +40,7 @@ export async function getServerUserSession(request: Request) {
       "users.avatarUrl",
     ])
     .where("sessions.id", "=", session.id)
+    .where("sessions.expiresAt", ">", now)
     .limit(1)
     .execute();
 
@@ -58,17 +57,18 @@ export async function getServerUserSession(request: Request) {
     role: result.role,
   };
 
-  // Update the session's lastAccessed timestamp
-  const now = new Date();
+  // Update activity time only. The server-side expiresAt remains the
+  // absolute expiry established when the session was created.
   await db
     .updateTable("sessions")
     .set({ lastAccessed: now })
     .where("id", "=", session.id)
+    .where("expiresAt", ">", now)
     .execute();
 
   return {
     user: user satisfies User,
-    // make sure to update the session in cookie
+    // Keep the cookie's activity metadata aligned with the database.
     session: {
       ...session,
       lastAccessed: now,

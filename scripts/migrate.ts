@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import postgres from "postgres";
+import { stripMigrationTransaction } from "../helpers/sqlMigration";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -32,8 +33,15 @@ try {
 
     const migration = await readFile(new URL(name, migrationsDirectory), "utf8");
     console.log(`Applying migration: ${name}`);
-    await sql.unsafe(migration);
-    await sql`INSERT INTO tjs_edu_schema_migrations (name) VALUES (${name})`;
+    // Strip optional SQL comments and outer transaction markers. The runner
+    // owns the transaction so the migration and tracking row stay atomic.
+    const migrationBody = stripMigrationTransaction(migration);
+
+    // If any statement fails, PostgreSQL rolls the migration back and it can be retried.
+    await sql.begin(async (tx) => {
+      await tx.unsafe(migrationBody);
+      await tx`INSERT INTO tjs_edu_schema_migrations (name) VALUES (${name})`;
+    });
     console.log(`Applied: ${name}`);
   }
 

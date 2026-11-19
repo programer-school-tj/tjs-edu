@@ -9,9 +9,15 @@ const schema = z.object({
   academicYear: z.string().regex(/^20[0-9]{2}-20[0-9]{2}$/),
   slots: z.array(z.object({
     weekday: z.number().int().min(1).max(6),
-    lessonNumber: z.number().int().min(0).max(6),
-  })).max(42).refine((items) => new Set(items.map((item) => item.weekday + ":" + item.lessonNumber)).size === items.length, "Қоидаи такрорӣ вуҷуд дорад.")
-    .refine((items) => items.every((item) => item.lessonNumber === 0 || !items.some((other) => other.weekday === item.weekday && other.lessonNumber === 0)), "Рӯзи истироҳатро бо соати банд якҷоя интихоб кардан мумкин нест.")
+    shiftNumber: z.number().int().min(0).max(2).default(0),
+    lessonNumber: z.number().int().min(0).max(12),
+  })).max(144).refine((items) => items.every((item, index) =>
+    !items.slice(index + 1).some((other) =>
+      other.weekday === item.weekday &&
+      (item.shiftNumber === 0 || other.shiftNumber === 0 || item.shiftNumber === other.shiftNumber) &&
+      (item.lessonNumber === 0 || other.lessonNumber === 0 || item.lessonNumber === other.lessonNumber)
+    )
+  ), "Қоидаҳои такрорӣ ё ба ҳам зид вуҷуд доранд.")
 });
 
 export async function handle(request: Request) {
@@ -28,6 +34,14 @@ export async function handle(request: Request) {
       .where("institutions.status", "=", "approved").executeTakeFirst();
     if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассиса метавонад дастрасии омӯзгорро тағйир диҳад." }), { status: 403 });
 
+    const settings = await db.selectFrom("institutionTimetableSettings").select(["schoolDays", "maxLessonsPerDay"])
+      .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst();
+    const schoolDays = Number(settings?.schoolDays ?? 6);
+    const maxLessons = Number(settings?.maxLessonsPerDay ?? 6);
+    if (x.slots.some((slot) => slot.weekday > schoolDays || slot.lessonNumber > maxLessons)) {
+      return new Response(superjson.stringify({ message: "Рӯз ё соати интихобшуда аз танзимоти ҷадвал берун аст." }), { status: 400 });
+    }
+
     await db.transaction().execute(async (trx) => {
       const staff = await trx.selectFrom("institutionStaff").select("id")
         .where("id", "=", x.staffId).where("institutionId", "=", x.institutionId)
@@ -40,7 +54,7 @@ export async function handle(request: Request) {
       if (x.slots.length) {
         await trx.insertInto("institutionStaffAvailability").values(x.slots.map((slot) => ({
           institutionId: x.institutionId, staffId: x.staffId, academicYear: x.academicYear,
-          weekday: slot.weekday, lessonNumber: slot.lessonNumber, createdBy: user.id,
+          weekday: slot.weekday, shiftNumber: slot.shiftNumber, lessonNumber: slot.lessonNumber, createdBy: user.id,
         }))).execute();
       }
     });
@@ -51,6 +65,6 @@ export async function handle(request: Request) {
       message: error instanceof z.ZodError ? "Маълумоти дастрасии омӯзгор нодуруст аст."
         : code === "STAFF_NOT_FOUND" ? "Омӯзгори интихобшуда дар муассиса ёфт нашуд."
         : "Қоидаҳои дастрасии омӯзгор сабт нашуданд.",
-    }), { status: code === "STAFF_NOT_FOUND" ? 404 : 400, headers: { "Content-Type": "application/json" } });
+    }), { status: (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : code === "STAFF_NOT_FOUND" ? 404 : 409, headers: { "Content-Type": "application/json" } });
   }
 }

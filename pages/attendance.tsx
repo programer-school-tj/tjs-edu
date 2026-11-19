@@ -1,18 +1,20 @@
 import React,{useEffect,useMemo,useState}from"react";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLanguage } from "../helpers/i18n";
+import { useAuth } from "../helpers/useAuth";
 import{useNavigate}from"react-router-dom";
 import{getInstitutions}from"../endpoints/institutions/create_POST.schema";
 import{getClasses}from"../helpers/educationClient";
-import{getAttendance,saveAttendance}from"../helpers/attendanceClient";
+import{getAttendance,saveAttendance,syncAttendanceOutbox}from"../helpers/attendanceClient";
 import styles from"./attendance.module.css";
 type Student={studentId:string;fullName:string;studentNumber?:string|null;status:"present"|"absent"|"late"|"excused"|null;note?:string|null};
 const labels={present:"attendance.present",absent:"attendance.absent",late:"attendance.late",excused:"attendance.excused"};
 const todayLocal=()=>{const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;};
-export default function AttendancePage(){const {t}=useLanguage();const nav=useNavigate();const[schools,setSchools]=useState<any[]>([]);const[school,setSchool]=useState("");const[classes,setClasses]=useState<any[]>([]);const[classId,setClassId]=useState("");const[date,setDate]=useState(todayLocal());const[students,setStudents]=useState<Student[]>([]);const[busy,setBusy]=useState(false);const[loading,setLoading]=useState(false);const[error,setError]=useState("");const[saved,setSaved]=useState("");
+export default function AttendancePage(){const {t}=useLanguage();const {authState}=useAuth();const userId=authState.type==="authenticated"?authState.user.id:null;const nav=useNavigate();const[schools,setSchools]=useState<any[]>([]);const[school,setSchool]=useState("");const[classes,setClasses]=useState<any[]>([]);const[classId,setClassId]=useState("");const[date,setDate]=useState(todayLocal());const[students,setStudents]=useState<Student[]>([]);const[busy,setBusy]=useState(false);const[loading,setLoading]=useState(false);const[error,setError]=useState("");const[saved,setSaved]=useState("");
+useEffect(()=>{const sync=()=>{void syncAttendanceOutbox().then(r=>{if(r.sent>0)setSaved(`${r.sent} амалиёти офлайн ҳамоҳанг шуд.`);}).catch(()=>{});};sync();window.addEventListener("online",sync);return()=>window.removeEventListener("online",sync);},[]);
 useEffect(()=>{void getInstitutions().then(a=>{const v=a.filter((x:any)=>x.status==="approved");setSchools(v);if(v[0])setSchool(v[0].id);}).catch(e=>setError(e.message));},[]);
 useEffect(()=>{if(!school)return;void getClasses(school).then(a=>{setClasses(a);setClassId(a[0]?.id||"");}).catch(e=>setError(e.message));},[school]);
-useEffect(()=>{if(!school||!classId||!date)return;setLoading(true);setError("");void getAttendance(school,classId,date).then(setStudents).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[school,classId,date]);
+useEffect(()=>{if(!school||!classId||!date||userId===null)return;let live=true;setLoading(true);setError("");void getAttendance(school,classId,date,userId).then(result=>{if(!live)return;setStudents(result.students);setSaved(result.fromCache?"Нусхаи маҳаллии рӯйхат нишон дода шуд. Маълумот аз "+new Date(result.savedAt).toLocaleString("tg-TJ")+".": "");}).catch(e=>{if(live)setError(e.message);}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[school,classId,date,userId]);
 const marked=useMemo(()=>students.filter(s=>s.status),[students]);const counts=useMemo(()=>({present:marked.filter(s=>s.status==="present").length,absent:marked.filter(s=>s.status==="absent").length,late:marked.filter(s=>s.status==="late").length,excused:marked.filter(s=>s.status==="excused").length}),[marked]);
 const change=(id:string,status:Student["status"])=>setStudents(rows=>rows.map(s=>s.studentId===id?{...s,status}:s));
 const changeNote=(id:string,note:string)=>setStudents(rows=>rows.map(s=>s.studentId===id?{...s,note}:s));
@@ -23,7 +25,7 @@ const data=[["№",t("attendance.name"),t("attendance.number"),t("attendance.dat
 const csv="\uFEFF"+data.map(row=>row.map(safe).join(";")).join("\r\n");
 const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="TJS-Edu-davomot-"+date+".csv";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
 };
-const submit=async()=>{if(!marked.length)return;setBusy(true);setError("");setSaved("");try{const r=await saveAttendance({institutionId:school,classId,date,records:marked.map(s=>({studentId:s.studentId,status:s.status as Exclude<Student["status"],null>,note:s.note||""}))});setSaved(`${r.saved} ${t("attendance.saved")}`);}catch(e){setError(e instanceof Error?e.message:t("attendance.saveError"));}finally{setBusy(false);}};
+const submit=async()=>{if(!marked.length)return;setBusy(true);setError("");setSaved("");try{const r=await saveAttendance({institutionId:school,classId,date,records:marked.map(s=>({studentId:s.studentId,status:s.status as Exclude<Student["status"],null>,note:s.note||""}))});setSaved(r.queued?"Маълумот дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад.":`${r.saved} ${t("attendance.saved")}`);}catch(e){setError(e instanceof Error?e.message:t("attendance.saveError"));}finally{setBusy(false);}};
 return <main className={styles.page}><div className={styles.wrap}><header><div><small>TJS EDU · НАЗОРАТИ ТАЪЛИМ</small><h1>{t("attendance.title")}</h1><p>{t("attendance.subtitle")}</p></div><LanguageSwitcher /><button onClick={()=>nav("/")}>← {t("common.mainDashboard")}</button></header>
 {error&&<p className={styles.error}>{error}</p>}{saved&&<p className={styles.success}>{saved}</p>}
 <section className={styles.panel}><div className={styles.filters}><label>{t("attendance.institution")}<select value={school} onChange={e=>setSchool(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>{t("attendance.class")}<select value={classId} onChange={e=>setClassId(e.target.value)}>{classes.map(c=><option key={c.id} value={c.id}>{c.grade}{c.section} · {c.academicYear}</option>)}</select></label><label>{t("attendance.date")}<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div></section>

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ExcelJS from "exceljs";
+import { createFallbackFinanceTemplate } from "../helpers/fallbackFinanceTemplate";
+import { evaluateFinanceFormula } from "../helpers/financeFormula";
 import { getFormDocument, saveFormDocument } from "../helpers/financeScheduleClient";
 import styles from "./ExcelTemplateEditor.module.css";
 
@@ -7,6 +9,7 @@ type DocumentType = "tariffing" | "payroll" | "timetable";
 type Props = {
   title: string;
   templateUrl: string;
+  templateVersion?: string;
   documentType: DocumentType;
   institutionId: string;
   academicYear: string;
@@ -21,6 +24,34 @@ type Props = {
   printScale?: number;
 };
 type MergeInfo = { startRow: number; endRow: number; startCol: number; endCol: number };
+
+const TEMPLATE_DB_NAME = "tjs-edu-template-library";
+function openTemplateDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(TEMPLATE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("templates")) request.result.createObjectStore("templates");
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Анбори бланкҳо кушода нашуд."));
+  });
+}
+async function getStoredTemplate(type: DocumentType): Promise<ArrayBuffer | null> {
+  const db = await openTemplateDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("templates", "readonly").objectStore("templates").get(type);
+    request.onsuccess = () => { db.close(); resolve(request.result instanceof ArrayBuffer ? request.result : null); };
+    request.onerror = () => { db.close(); reject(request.error); };
+  });
+}
+async function saveStoredTemplate(type: DocumentType, data: ArrayBuffer): Promise<void> {
+  const db = await openTemplateDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("templates", "readwrite").objectStore("templates").put(data, type);
+    request.onsuccess = () => { db.close(); resolve(); };
+    request.onerror = () => { db.close(); reject(request.error || new Error("Бланк нигоҳ дошта нашуд.")); };
+  });
+}
 
 function colLetter(n: number) {
   let value = n;
@@ -55,6 +86,43 @@ function cellText(value: ExcelJS.CellValue): string {
 function isFormulaCell(cell: ExcelJS.Cell) {
   const value = cell.value as any;
   return Boolean(cell.formula || value?.sharedFormula);
+}
+
+function recalculateFormulas(worksheet: ExcelJS.Worksheet) {
+  const formulaCells: ExcelJS.Cell[] = [];
+  worksheet.eachRow({ includeEmpty: false }, (row) => {
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      if (isFormulaCell(cell)) formulaCells.push(cell);
+    });
+  });
+  const evaluateCell = (address: string, visiting: Set<string>): unknown => {
+    const cell = worksheet.getCell(address);
+    const value = cell.value as any;
+    const formula = String(value?.formula || cell.formula || "");
+    if (!formula) return value && typeof value === "object" && "result" in value ? value.result : value;
+    if (visiting.has(address)) throw new Error("Формулаҳо ба ҳам даврӣ пайвастанд. Истиноди давриро ислоҳ кунед.");
+    const next = new Set(visiting);
+    next.add(address);
+    const result = evaluateFinanceFormula(formula, (reference) => evaluateCell(reference, next));
+    cell.value = { formula, result } as ExcelJS.CellValue;
+    return result;
+  };
+  for (const cell of formulaCells) evaluateCell(cell.address, new Set());
+}
+
+function setCellInput(worksheet: ExcelJS.Worksheet, address: string, input: string) {
+  const cell = worksheet.getCell(address);
+  if (input.trim().startsWith("=")) {
+    const formula = input.trim().slice(1);
+    const result = evaluateFinanceFormula(formula, (reference) => {
+      const value = worksheet.getCell(reference).value as any;
+      return value && typeof value === "object" && "result" in value ? value.result : value;
+    });
+    cell.value = { formula, result } as ExcelJS.CellValue;
+  } else {
+    cell.value = input;
+  }
+  recalculateFormulas(worksheet);
 }
 
 function excelColor(color: any): string | undefined {
@@ -134,15 +202,31 @@ export function ExcelTemplateEditor(props: Props) {
 
   const load = useCallback(async () => {
     if (!props.institutionId) return;
-    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey].join("|");
+    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey, props.templateVersion || "2026-11-19-original-forms-v1"].join("|");
     const pendingEdits = documentKeyRef.current === documentKey ? { ...dirtyCellsRef.current } : {};
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
-      const response = await fetch(props.templateUrl);
-      if (!response.ok) throw new Error("Бланкаи аслӣ кушода нашуд.");
-      const buffer = await response.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(buffer);
+      let workbook = new ExcelJS.Workbook();
+      let usedFallbackTemplate = false;
+      let usedInstalledTemplate = false;
+      let installedTemplate: ArrayBuffer | null = null;
+      try { installedTemplate = await getStoredTemplate(props.documentType); } catch { /* Continue with the hosted template if local storage is unavailable. */ }
+      try {
+        if (installedTemplate) {
+          await workbook.xlsx.load(installedTemplate);
+          usedInstalledTemplate = true;
+        } else {
+          const response = await fetch(props.templateUrl);
+          if (!response.ok) throw new Error("Бланкаи берунии Excel дастрас нест.");
+          const buffer = await response.arrayBuffer();
+          await workbook.xlsx.load(buffer);
+        }
+      } catch {
+        // The old template URLs belong to the Floot-hosted environment. Keep
+        // the standalone app usable when those files are unavailable.
+        workbook = createFallbackFinanceTemplate(props.documentType, props.academicYear, periodKey);
+        usedFallbackTemplate = true;
+      }
       const worksheet = workbook.getWorksheet(props.worksheetName) || workbook.worksheets[0];
       if (!worksheet) throw new Error("Варақи Excel ёфт нашуд.");
       if (props.documentType === "payroll" && /^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(periodKey)) {
@@ -158,18 +242,29 @@ export function ExcelTemplateEditor(props: Props) {
         if (!isFormulaCell(target)) target.value = value;
       });
       const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey);
-      const cells = (saved?.payload?.cells || {}) as Record<string, string>;
+      const storedVersion = String(saved?.templateVersion || "");
+      const currentVersion = props.templateVersion || "2026-11-19-original-forms-v1";
+      const storedCells = (saved?.payload?.cells || {}) as Record<string, string>;
+      const compatibleCells = !storedVersion || storedVersion === currentVersion;
+      const cells = compatibleCells ? storedCells : {};
       savedCellsRef.current = { ...cells };
+      if (!compatibleCells && Object.keys(storedCells).length) {
+        setNotice("Бланки ҷадвали дарсӣ нав шуд. Сабтҳои версияи пешина ба шакли нав худкор гузаронида нашуданд; маълумоти пешина то сабти бланки нав дар пойгоҳи додаҳо нигоҳ дошта мешавад.");
+      }
       Object.entries(cells).forEach(([address, value]) => {
         if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(address) || typeof value !== "string") return;
         const target = worksheet.getCell(address);
-        // Never replace an Excel formula with its cached display value.
-        if (!isFormulaCell(target)) target.value = value;
+        if (!isFormulaCell(target)) setCellInput(worksheet, address, value);
       });
       Object.entries(pendingEdits).forEach(([address, value]) => {
-        const target = worksheet.getCell(address);
-        if (!isFormulaCell(target)) target.value = value;
+        if (/^[A-Z]{1,3}[1-9][0-9]*$/.test(address)) setCellInput(worksheet, address, value);
       });
+      recalculateFormulas(worksheet);
+      if (usedInstalledTemplate) {
+        setNotice("Бланки аслии муассиса аз хотираи ҳамин дастгоҳ кушода шуд.");
+      } else if (usedFallbackTemplate) {
+        setNotice("Бланки расмӣ ҳанӯз насб нашудааст. Барои истифодаи шакли аслӣ тугмаи «Насби бланки аслӣ»-ро пахш карда, файли Excel-ро интихоб кунед.");
+      }
       dirtyCellsRef.current = pendingEdits;
       documentKeyRef.current = documentKey;
       workbookRef.current = workbook;
@@ -178,7 +273,7 @@ export function ExcelTemplateEditor(props: Props) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Бланка кушода нашуд.");
     } finally { setBusy(false); }
-  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, periodKey]);
+  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, props.templateVersion, periodKey]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -190,11 +285,22 @@ export function ExcelTemplateEditor(props: Props) {
   }, [worksheet, props.maxRows, revision]);
 
   const updateCell = (address: string, value: string) => {
-    const cell = worksheetRef.current?.getCell(address);
-    if (!cell) return;
-    cell.value = value;
-    dirtyCellsRef.current[address] = value;
-    setDirty(true);
+    const worksheet = worksheetRef.current;
+    const cell = worksheet?.getCell(address);
+    if (!cell || !worksheet) return;
+    const previous = cell.value;
+    try {
+      setCellInput(worksheet, address, value);
+      dirtyCellsRef.current[address] = value;
+      setDirty(true);
+      setError("");
+      setRevision((current) => current + 1);
+    } catch (e) {
+      cell.value = previous;
+      try { recalculateFormulas(worksheet); } catch { /* Keep the prior valid workbook state. */ }
+      setError(e instanceof Error ? e.message : "Формула дуруст нест.");
+      setRevision((current) => current + 1);
+    }
   };
 
   const save = async () => {
@@ -204,7 +310,7 @@ export function ExcelTemplateEditor(props: Props) {
       // Persist only user-edited cells. This keeps auto-filled staff data dynamic
       // for newly added employees while preserving intentional manual clearing.
       const cells = { ...savedCellsRef.current, ...dirtyCellsRef.current };
-      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: "2026-11-07-v2", cells });
+      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: props.templateVersion || "2026-11-19-original-forms-v1", cells });
       savedCellsRef.current = cells;
       dirtyCellsRef.current = {};
       setDirty(false); setNotice("Тағйиротҳо дар пойгоҳи додаҳо сабт шуданд.");
@@ -235,11 +341,37 @@ export function ExcelTemplateEditor(props: Props) {
     } finally { setBusy(false); }
   };
 
+  const installTemplate = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) throw new Error("Фақат файли .xlsx интихоб кунед.");
+      const buffer = await file.arrayBuffer();
+      const check = new ExcelJS.Workbook();
+      await check.xlsx.load(buffer);
+      const sheet = check.getWorksheet(props.worksheetName);
+      if (!sheet) throw new Error("Дар файли интихобшуда варақи «" + props.worksheetName + "» ёфт нашуд.");
+      await saveStoredTemplate(props.documentType, buffer);
+      setNotice("Бланки аслӣ насб шуд. Он дар ҳамин дастгоҳ нигоҳ дошта мешавад.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Бланк насб карда нашуд.");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  };
+
   return <section className={styles.editor}>
     <style>{`@page { size: A4 ${props.orientation || "landscape"}; margin: 6mm; } @media print { html, body { background: #fff !important; } body, body * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .${styles.sheetScroll} { zoom: ${props.printScale ?? 0.7}; overflow: visible !important; max-height: none !important; } .${styles.sheet} { border-collapse: collapse !important; } .${styles.sheet} tr, .${styles.sheet} td { break-inside: avoid; page-break-inside: avoid; } }`}</style>
     <div className={styles.toolbar}>
-      <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Маълумоти кормандон пешакӣ пур мешавад. Сабтҳои дастӣ нигоҳ дошта мешаванд; ҳуҷайраҳои қисми маълумотро таҳрир кунед.</p></div>
+      <div><span className={styles.kicker}>БЛАНКАИ АСЛИИ EXCEL</span><h2>{props.title}</h2><p>Маълумоти кормандон пешакӣ пур мешавад. Ҳуҷайраҳоро таҳрир кунед; барои формула бо = оғоз намоед, мисол: =J5*1.25 ё =ROUND(J5*1.25,2).</p></div>
       <div className={styles.actions}>
+        <label className={styles.secondary} style={{ display: "inline-flex", alignItems: "center", cursor: busy ? "not-allowed" : "pointer" }}>
+          Насби бланки аслӣ
+          <input type="file" accept=".xlsx" onChange={installTemplate} disabled={busy} style={{ display: "none" }} />
+        </label>
         <button type="button" className={styles.secondary} onClick={() => void load()} disabled={busy}>↻ Аз нав кушодан</button>
         <button type="button" onClick={() => void save()} disabled={busy || !ready}>{busy ? "Лаҳза..." : "Сабт"}</button>
         <button type="button" className={styles.export} onClick={() => void exportWorkbook()} disabled={busy || !ready}>Excel ↓</button>
@@ -261,7 +393,8 @@ export function ExcelTemplateEditor(props: Props) {
               if (mergeInfo.hidden.has(address)) return null;
               const cell = worksheet.getCell(rowNumber, colNumber);
               const merge = mergeInfo.map.get(address);
-              const editable = rowNumber > props.headerRows && rowNumber <= (props.editableThroughRow ?? props.maxRows) && !isFormulaCell(cell);
+              const savedFormula = String(dirtyCellsRef.current[address] ?? savedCellsRef.current[address] ?? "").trim().startsWith("=");
+              const editable = rowNumber > props.headerRows && rowNumber <= (props.editableThroughRow ?? props.maxRows) && (!isFormulaCell(cell) || savedFormula);
               const text = cellText(cell.value);
               const columnWidth = worksheet.getColumn(colNumber).width || 10;
               return <td key={address} rowSpan={merge ? merge.endRow - merge.startRow + 1 : 1} colSpan={merge ? merge.endCol - merge.startCol + 1 : 1} style={styleFor(cell, columnWidth)}>
@@ -272,6 +405,6 @@ export function ExcelTemplateEditor(props: Props) {
         </tbody>
       </table>
     </div>}
-    <div className={styles.footerNote}>Маълумот ба муассисаи интихобшуда тааллуқ дорад. Қоидаҳои андоз ва меъёрҳои маош худкор тахмин карда намешаванд.</div>
+    <div className={styles.footerNote}>Маълумот ба муассисаи интихобшуда тааллуқ дорад. {props.documentType === "tariffing" ? "Формулаҳои ин бланк дар Excel ҳисоб мешаванд; барои татбиқ ба табели маош меъёри ҳисоб бояд ҳамчун қоидаи молиявии муассиса сабт ва тасдиқ шавад." : "Қоидаҳои андоз ва меъёрҳои маош худкор тахмин карда намешаванд."}</div>
   </section>;
 }

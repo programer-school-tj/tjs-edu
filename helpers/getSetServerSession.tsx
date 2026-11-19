@@ -80,7 +80,7 @@ export async function setServerSession(
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("1d")
+    .setExpirationTime(`${SessionExpirationSeconds}s`)
     .sign(encoder.encode(secret));
 
   const cookieValue = [
@@ -96,14 +96,15 @@ export async function setServerSession(
 }
 
 export function clearServerSession(response: Response) {
-  // Clear the session cookie by setting an expired date
+  // Use the same Secure policy as the session cookie so local HTTP development
+  // can clear the cookie as well as production HTTPS deployments.
   const cookieValue = [
     `${CookieName}=`,
     "HttpOnly",
-    "Secure",
+    ...(process.env.NODE_ENV === "production" ? ["Secure"] : []),
     "SameSite=Lax",
     "Path=/",
-    "Max-Age=0", // Expire immediately
+    "Max-Age=0",
   ].join("; ");
 
   response.headers.set("Set-Cookie", cookieValue);

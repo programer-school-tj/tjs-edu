@@ -28,11 +28,31 @@ export async function handle(request: Request) {
     if (user.role !== "admin" && !access) {
       return new Response(superjson.stringify({ message: "Танҳо роҳбари муассиса метавонад сарбории фанниро тағйир диҳад." }), { status: 403 });
     }
-    const [teacher, cls] = await Promise.all([
-      db.selectFrom("institutionStaff").select("id").where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst(),
+    const [teacher, cls, existingLoads] = await Promise.all([
+      db.selectFrom("institutionStaff").select(["id", "workloadHours"]).where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst(),
       db.selectFrom("institutionClasses").select(["id", "grade"]).where("id", "=", x.classId).where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear).executeTakeFirst(),
+      db.selectFrom("institutionTeachingLoads").select(["classId", "staffId", "subject", "weeklyHours"])
+        .where("institutionId", "=", x.institutionId).where("academicYear", "=", x.academicYear)
+        .where("staffId", "=", x.staffId).execute(),
     ]);
     if (!teacher || !cls) return new Response(superjson.stringify({ message: "Омӯзгор ё синфи интихобшуда ёфт нашуд." }), { status: 404 });
+    const normalizedSubject = x.subject.trim().toLocaleLowerCase();
+    const duplicate = existingLoads.some((load) => load.classId === x.classId
+      && load.subject.trim().toLocaleLowerCase() === normalizedSubject);
+    if (duplicate) {
+      return new Response(superjson.stringify({
+        message: "Барои ҳамин омӯзгор, синф ва фан сарборӣ аллакай ворид шудааст.",
+        code: "LOAD_ALREADY_EXISTS",
+      }), { status: 409 });
+    }
+    const plannedHours = existingLoads.reduce((sum, load) => sum + Number(load.weeklyHours), 0) + x.weeklyHours;
+    if (teacher.workloadHours !== null && teacher.workloadHours !== undefined
+      && plannedHours > Number(teacher.workloadHours)) {
+      return new Response(superjson.stringify({
+        message: "Ҷамъи соатҳои сарбории воридшуда аз сарбории тасдиқшудаи омӯзгор зиёд мешавад.",
+        code: "LOAD_EXCEEDS_APPROVED",
+      }), { status: 422 });
+    }
     const row = await db.insertInto("institutionTeachingLoads").values({
       institutionId: x.institutionId, staffId: x.staffId, classId: x.classId,
       subject: x.subject, weeklyHours: x.weeklyHours, academicYear: x.academicYear, createdBy: user.id,
@@ -40,6 +60,7 @@ export async function handle(request: Request) {
     return new Response(superjson.stringify({ load: row }), { status: 201, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const message = error instanceof z.ZodError ? "Маълумоти сарборӣ нодуруст аст." : "Сарбории фаннӣ сабт нашуд. Эҳтимол ин сабт аллакай вуҷуд дорад.";
-    return new Response(superjson.stringify({ message }), { status: 400, headers: { "Content-Type": "application/json" } });
+    const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : 409;
+    return new Response(superjson.stringify({ message }), { status, headers: { "Content-Type": "application/json" } });
   }
 }

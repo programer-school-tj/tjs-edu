@@ -209,8 +209,9 @@ export function ExcelTemplateEditor(props: Props) {
       let workbook = new ExcelJS.Workbook();
       let usedFallbackTemplate = false;
       let usedInstalledTemplate = false;
+      let installedTemplate: ArrayBuffer | null = null;
+      try { installedTemplate = await getStoredTemplate(props.documentType); } catch { /* Continue with the hosted template if local storage is unavailable. */ }
       try {
-        const installedTemplate = await getStoredTemplate(props.documentType);
         if (installedTemplate) {
           await workbook.xlsx.load(installedTemplate);
           usedInstalledTemplate = true;
@@ -349,11 +350,8 @@ export function ExcelTemplateEditor(props: Props) {
       const buffer = await file.arrayBuffer();
       const check = new ExcelJS.Workbook();
       await check.xlsx.load(buffer);
-      const sheet = check.getWorksheet(props.worksheetName) || check.worksheets[0];
-      if (!sheet) throw new Error("Дар файли интихобшуда варақи Excel нест.");
-      if (props.documentType === "timetable" && sheet.name !== props.worksheetName) {
-        throw new Error("Варақи ҷадвали дарсӣ бояд «" + props.worksheetName + "» бошад.");
-      }
+      const sheet = check.getWorksheet(props.worksheetName);
+      if (!sheet) throw new Error("Дар файли интихобшуда варақи «" + props.worksheetName + "» ёфт нашуд.");
       await saveStoredTemplate(props.documentType, buffer);
       setNotice("Бланки аслӣ насб шуд. Он дар ҳамин дастгоҳ нигоҳ дошта мешавад.");
       await load();

@@ -20,24 +20,43 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Docker Desktop-ро кушоед ва баъд ин файлро аз нав иҷро кунед." -ForegroundColor Red
+  Write-Host "Docker Desktop-ро кушоед ва то ҳолати Running интизор шавед." -ForegroundColor Red
   Read-Host "Enter барои баромадан"
   exit 1
 }
 
-$envText = if (Test-Path ".env") { Get-Content ".env" -Raw } else { "" }
-$hasSessionSecret = $envText -match "(?m)^SESSION_SECRET=[A-Za-z0-9_-]{32,}$"
-$hasDatabasePassword = $envText -match "(?m)^POSTGRES_PASSWORD=[0-9a-f]{64}$"
-if (-not ($hasSessionSecret -and $hasDatabasePassword)) {
-  $sessionSecret = New-RandomHex 48
-  $databasePassword = New-RandomHex 32
-  @"
-SESSION_SECRET=$sessionSecret
-POSTGRES_PASSWORD=$databasePassword
-"@ | Set-Content -Encoding ascii ".env"
-  Write-Host "Файли .env бо калидҳои қавии алоҳида сохта/нав карда шуд." -ForegroundColor Green
+# Keep all unrelated .env settings and preserve each valid secret independently.
+$envLines = @()
+if (Test-Path ".env") {
+  $envLines = @(Get-Content ".env")
+}
+$envText = $envLines -join "`n"
+$sessionMatch = [regex]::Match($envText, "(?m)^SESSION_SECRET=([A-Za-z0-9_-]{32,})\s*$")
+$databaseMatch = [regex]::Match($envText, "(?m)^POSTGRES_PASSWORD=([0-9a-f]{64})\s*$")
+
+if ($sessionMatch.Success) {
+  $sessionSecret = $sessionMatch.Groups[1].Value
 } else {
-  Write-Host "Калидҳои .env мавҷуданд ва нигоҳ дошта мешаванд." -ForegroundColor Green
+  $sessionSecret = New-RandomHex 48
+}
+if ($databaseMatch.Success) {
+  $databasePassword = $databaseMatch.Groups[1].Value
+} else {
+  $databasePassword = New-RandomHex 32
+}
+
+$envLines = @($envLines | Where-Object { $_ -notmatch "^(SESSION_SECRET|POSTGRES_PASSWORD)=" })
+$envLines += "SESSION_SECRET=$sessionSecret"
+$envLines += "POSTGRES_PASSWORD=$databasePassword"
+Set-Content -Path ".env" -Value $envLines -Encoding ascii
+Write-Host "Танзимоти .env омодаанд; дигар параметрҳои мавҷуда нигоҳ дошта шуданд." -ForegroundColor Green
+
+Write-Host "Санҷиши docker compose..." -ForegroundColor Cyan
+docker compose config --quiet
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "docker-compose.yml ё файли .env нодуруст аст. Танзимотро санҷед." -ForegroundColor Red
+  Read-Host "Enter барои баромадан"
+  exit 1
 }
 
 Write-Host "Оғози PostgreSQL, иҷрои мигратсияҳо ва сохтани барнома..." -ForegroundColor Cyan
@@ -69,4 +88,5 @@ Write-Host ""
 Write-Host "TJS Edu фаъол аст: http://localhost:8080" -ForegroundColor Green
 Write-Host "Санҷиши API: http://localhost:8080/health" -ForegroundColor Green
 Write-Host "Барои қатъ кардан: docker compose down" -ForegroundColor Yellow
+Write-Host "Барои нусхаи эҳтиётӣ: docker compose exec -T db pg_dump -U tjsedu tjs_edu > tjs-edu-backup.sql" -ForegroundColor Yellow
 Read-Host "Enter барои анҷом"

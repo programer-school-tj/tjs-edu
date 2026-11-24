@@ -30,7 +30,18 @@ docker compose exec -T db pg_dump -U tjsedu tjs_edu > tjs-edu-backup.sql
 
 Stop the app with `docker compose down`. This keeps the database volume. Do not use `docker compose down -v` unless you intend to delete local database data.
 
-## 2. Internet edition
+## 2. Password-reset email
+
+TJS Edu sends password-reset codes through the Resend email API. This does not use Floot's email service.
+
+1. Create a Resend account and verify a domain you control.
+2. Create an API key with permission to send email.
+3. In the server's private `.env`, set `RESEND_API_KEY` and `RESEND_FROM` to the API key and a sender address on that verified domain.
+4. Restart the app so Docker Compose passes the new variables into the application container.
+
+Without these variables, password-reset requests return the same generic success response for privacy, but no email is sent and no new usable code is created. Never commit the API key or place it in frontend code. The email provider and sender domain must be configured before offering password recovery to real users.
+
+## 3. Internet edition
 
 The current `docker-compose.yml` is intentionally bound to `127.0.0.1:8080` for local use. It is not a public internet deployment configuration.
 
@@ -51,7 +62,7 @@ docker build -t tjs-edu:latest .
 
 A public deployment must be configured and tested on the selected host before it can be called live. No public endpoint is implied by a successful local build or CI run.
 
-## 3. Mobile edition (installable PWA)
+## 4. Mobile edition (installable PWA)
 
 TJS Edu includes a web app manifest and service-worker registration. It can be installed from a secure HTTPS website on supported Android and iOS browsers.
 

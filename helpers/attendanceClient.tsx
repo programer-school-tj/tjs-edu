@@ -73,7 +73,8 @@ export async function getAttendance(institutionId: string, classId: string, date
 
 export async function saveAttendance(input: AttendanceInput, userId: number): Promise<{ saved: number; queued?: boolean }> {
   // Persist first, then send. The same outbox id is reused as the server idempotency key on retries.
-  const scope = attendanceScope(userId);\n  const entry = await enqueueOutbox(scope, input);
+  const scope = attendanceScope(userId);
+  const entry = await enqueueOutbox(scope, input);
   await syncAttendanceOutbox(userId);
   const remaining = await listOutbox(scope);
   return remaining.some((item) => item.id === entry.id)

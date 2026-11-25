@@ -19,6 +19,7 @@ test("institution directors cannot read another institution data or create its s
   let userId: number | undefined;
   let institutionA: string | undefined;
   let institutionB: string | undefined;
+  let institutionPending: string | undefined;
   const sessionId = randomUUID();
 
   try {
@@ -43,9 +44,20 @@ test("institution directors cannot read another institution data or create its s
     `;
     institutionB = schoolB.id;
 
+    const [pendingSchool] = await sql`
+      INSERT INTO institutions (name, institution_type, region, director_name, created_by, status)
+      VALUES (${`Tenant API Pending ${suffix}`}, 'school', 'Khatlon', 'Director Pending', ${userId!}, 'pending')
+      RETURNING id
+    `;
+    institutionPending = pendingSchool.id;
+
     await sql`
       INSERT INTO institution_memberships (institution_id, user_id, role, is_active)
       VALUES (${institutionA!}, ${userId!}, 'director', true)
+    `;
+    await sql`
+      INSERT INTO institution_memberships (institution_id, user_id, role, is_active)
+      VALUES (${institutionPending!}, ${userId!}, 'director', true)
     `;
     await sql`
       INSERT INTO sessions (id, user_id, expires_at)
@@ -79,6 +91,12 @@ test("institution directors cannot read another institution data or create its s
         { headers: { cookie: `tjs_edu_session=${token}` } },
       ));
       assert.equal(foreignResponse.status, 403, `director must not read another institution's ${name}`);
+
+      const pendingResponse = await handle(new Request(
+        `http://localhost/_api/${name}/list?institutionId=${institutionPending!}`,
+        { headers: { cookie: `tjs_edu_session=${token}` } },
+      ));
+      assert.equal(pendingResponse.status, 403, `pending institution must not expose ${name} data before approval`);
     }
 
     const { handle: listAttendance } = await import("../endpoints/attendance/list_GET");
@@ -150,6 +168,10 @@ test("institution directors cannot read another institution data or create its s
     for (const [name, handle, payload] of writeCases) {
       const response = await postForeign(name, handle, payload);
       assert.equal(response.status, 403, `director must not create data in another institution's ${name}`);
+
+      const pendingPayload = { ...(payload as Record<string, unknown>), institutionId: institutionPending! };
+      const pendingWrite = await postForeign(name, handle, pendingPayload);
+      assert.equal(pendingWrite.status, 403, `pending institution must not accept ${name} writes before approval`);
     }
 
     const { handle: createStaff } = await import("../endpoints/staff/create_POST");
@@ -168,10 +190,23 @@ test("institution directors cannot read another institution data or create its s
       }),
     }));
     assert.equal(createResponse.status, 403, "director must not create staff in another institution");
+
+    const pendingStaffResponse = await createStaff(new Request("http://localhost/_api/staff/create", {
+      method: "POST",
+      headers: { cookie: `tjs_edu_session=${token}`, "content-type": "application/json" },
+      body: superjson.stringify({
+        institutionId: institutionPending!,
+        fullName: "Pending Institution Employee",
+        positionTitle: "Teacher",
+        employmentType: "teacher",
+      }),
+    }));
+    assert.equal(pendingStaffResponse.status, 403, "pending institution must not create staff before approval");
   } finally {
     if (sessionId) await sql`DELETE FROM sessions WHERE id = ${sessionId}`.catch(() => undefined);
     if (institutionA) await sql`DELETE FROM institutions WHERE id = ${institutionA!}`.catch(() => undefined);
     if (institutionB) await sql`DELETE FROM institutions WHERE id = ${institutionB!}`.catch(() => undefined);
+    if (institutionPending) await sql`DELETE FROM institutions WHERE id = ${institutionPending!}`.catch(() => undefined);
     if (userId) await sql`DELETE FROM users WHERE id = ${userId!}`.catch(() => undefined);
     await sql.end({ timeout: 5 });
   }

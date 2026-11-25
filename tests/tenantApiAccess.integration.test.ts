@@ -101,7 +101,7 @@ test("institution directors cannot read another institution data or create its s
 
     const { handle: listAttendance } = await import("../endpoints/attendance/list_GET");
     const attendanceClassId = randomUUID();
-    for (const institutionId of [institutionA!, institutionB!]) {
+    for (const institutionId of [institutionA!, institutionB!, institutionPending!]) {
       const response = await listAttendance(new Request(
         `http://localhost/_api/attendance/list?institutionId=${institutionId}&classId=${attendanceClassId}&date=2026-11-19`,
         { headers: { cookie: `tjs_edu_session=${token}` } },

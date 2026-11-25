@@ -9,7 +9,7 @@ type AttendanceInput = {
   records: { studentId: string; status: "present" | "absent" | "late" | "excused"; note?: string }[];
 };
 
-const ATTENDANCE_SCOPE = "attendance.save";
+const attendanceScope = (userId: number) => `attendance.save:${userId}`;
 
 async function call<T>(url: string, body?: unknown): Promise<T> {
   const response = await fetch(url, {
@@ -39,11 +39,11 @@ async function sendAttendance(operationId: string, payload: AttendanceInput): Pr
   if (!response.ok) throw new Error(data.message || `Сабти давомот иҷро нашуд (HTTP ${response.status}).`);
 }
 
-export async function syncAttendanceOutbox(): Promise<{ sent: number; failed: number }> {
+export async function syncAttendanceOutbox(userId: number): Promise<{ sent: number; failed: number }> {
   return flushOutbox(async (operationId, scope, payload) => {
-    if (scope !== ATTENDANCE_SCOPE) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
+    if (scope !== attendanceScope(userId)) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
     await sendAttendance(operationId, payload as AttendanceInput);
-  }, ATTENDANCE_SCOPE);
+  }, attendanceScope(userId));
 }
 
 export async function getAttendance(institutionId: string, classId: string, date: string, userId: number) {
@@ -71,11 +71,11 @@ export async function getAttendance(institutionId: string, classId: string, date
   }
 }
 
-export async function saveAttendance(input: AttendanceInput): Promise<{ saved: number; queued?: boolean }> {
+export async function saveAttendance(input: AttendanceInput, userId: number): Promise<{ saved: number; queued?: boolean }> {
   // Persist first, then send. The same outbox id is reused as the server idempotency key on retries.
-  const entry = await enqueueOutbox(ATTENDANCE_SCOPE, input);
-  await syncAttendanceOutbox();
-  const remaining = await listOutbox(ATTENDANCE_SCOPE);
+  const scope = attendanceScope(userId);\n  const entry = await enqueueOutbox(scope, input);
+  await syncAttendanceOutbox(userId);
+  const remaining = await listOutbox(scope);
   return remaining.some((item) => item.id === entry.id)
     ? { saved: input.records.length, queued: true }
     : { saved: input.records.length };

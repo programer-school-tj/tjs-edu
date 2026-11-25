@@ -89,7 +89,7 @@ export async function listOutbox<T = unknown>(scope?: string): Promise<OutboxEnt
       ? await requestResult<OutboxEntry<T>[]>(store.index("by_scope").getAll(scope))
       : await requestResult<OutboxEntry<T>[]>(store.getAll());
     await transactionDone(transaction);
-    return entries.sort((a, b) => a.createdAt - b.createdAt);
+    return entries.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
   } finally {
     database.close();
   }
@@ -112,6 +112,31 @@ export interface OutboxFlushResult {
 }
 
 /**
+ * Processes entries in order. A blocked or failed operation stops the queue:
+ * later writes may depend on it and must not overtake it.
+ */
+export async function processOutboxInOrder<T extends Pick<OutboxEntry, "id" | "scope" | "payload">>(
+  entries: T[],
+  send: (entry: T) => Promise<boolean>,
+): Promise<OutboxFlushResult> {
+  let sent = 0;
+  let failed = 0;
+
+  for (const entry of entries) {
+    try {
+      const completed = await send(entry);
+      if (!completed) break;
+      sent += 1;
+    } catch {
+      failed += 1;
+      break;
+    }
+  }
+
+  return { sent, failed };
+}
+
+/**
  * Sends pending operations in creation order. The stable entry id is passed to
  * the sender so the API can enforce idempotency and safely accept retries.
  */
@@ -120,18 +145,17 @@ export async function flushOutbox(
   scope?: string,
 ): Promise<OutboxFlushResult> {
   const entries = await listOutbox(scope);
-  let sent = 0;
-  let failed = 0;
 
-  for (const entry of entries) {
+  return processOutboxInOrder(entries, async entry => {
     // Claim atomically so two tabs do not send the same operation at once.
     // A two-minute lease allows recovery if the previous page was closed mid-send.
     const claimed = await claimEntry(entry.id);
-    if (!claimed) continue;
+    if (!claimed) return false;
+
     try {
       await send(entry.id, entry.scope, entry.payload);
       await removeOutboxEntry(entry.id);
-      sent += 1;
+      return true;
     } catch (error) {
       await updateEntry(entry.id, {
         status: "failed",
@@ -139,10 +163,9 @@ export async function flushOutbox(
         lastError: error instanceof Error ? error.message : "Хатои номаълум",
         updatedAt: Date.now(),
       });
-      failed += 1;
+      throw error;
     }
-  }
-  return { sent, failed };
+  });
 }
 
 async function claimEntry(id: string): Promise<boolean> {

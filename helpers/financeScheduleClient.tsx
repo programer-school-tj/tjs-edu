@@ -30,6 +30,8 @@ export const getFormDocument=async(institutionId:string,documentType:FormDocumen
     if(document) await cacheFormDocument({...key,templateVersion:String(document.templateVersion||""),cells:(document.payload?.cells||{}) as Record<string,string>,updatedAt:Date.now()});
     return document;
   } catch(error) {
+    const networkFailure=error instanceof TypeError||(typeof navigator!=="undefined"&&navigator.onLine===false);
+    if(!networkFailure) throw error;
     const cached=await readCachedFormDocument(key);
     if(cached) return {templateVersion:cached.templateVersion,payload:{cells:cached.cells},updatedAt:cached.updatedAt};
     throw error;

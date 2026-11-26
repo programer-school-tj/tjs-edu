@@ -42,7 +42,7 @@ export async function handle(request: Request) {
       return new Response(superjson.stringify({ message: "Калиди сабти бланк нодуруст аст." }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
     const input = schema.parse(superjson.parse(await request.text()));
-    const result = await runIdempotent("forms.save", user.id, idempotencyKey, input, async (trx) => {
+    const result = await runIdempotent<{ message?: string; document?: unknown }>("forms.save", user.id, idempotencyKey, input, async (trx) => {
       const access = await trx.selectFrom("institutionMemberships")
         .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
         .select("institutionMemberships.id")

@@ -1,5 +1,6 @@
 import { getServerUserSession } from "../../helpers/getServerUserSession";
 import { db } from "../../helpers/db";
+import { runIdempotent } from "../../helpers/idempotency";
 import { z } from "zod";
 import superjson from "superjson";
 
@@ -36,34 +37,41 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const idempotencyKey = request.headers.get("Idempotency-Key") || "";
+    if (!idempotencyKey || idempotencyKey.length > 200) {
+      return new Response(superjson.stringify({ message: "Калиди сабти бланк нодуруст аст." }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
     const input = schema.parse(superjson.parse(await request.text()));
-    const access = await db.selectFrom("institutionMemberships")
-      .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
-      .select("institutionMemberships.id")
-      .where("institutionMemberships.institutionId", "=", input.institutionId)
-      .where("institutionMemberships.userId", "=", user.id)
-      .where("institutionMemberships.isActive", "=", true)
-      .where("institutionMemberships.role", "=", "director")
-      .where("institutions.status", "=", "approved")
-      .executeTakeFirst();
-    if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассисаи тасдиқшуда метавонад бланкаро сабт кунад." }), { status: 403 });
-
-    const document = await db.insertInto("institutionFormDocuments").values({
-      institutionId: input.institutionId,
-      documentType: input.documentType,
-      academicYear: input.academicYear,
-      periodKey: input.periodKey,
-      templateVersion: input.templateVersion,
-      payload: { cells: input.cells },
-      createdBy: user.id,
-    }).onConflict((conflict) => conflict.columns(["institutionId", "documentType", "academicYear", "periodKey"]).doUpdateSet({
-      templateVersion: input.templateVersion,
-      payload: { cells: input.cells },
-      createdBy: user.id,
-      updatedAt: new Date(),
-    })).returning(["id", "documentType", "academicYear", "periodKey", "updatedAt"]).executeTakeFirstOrThrow();
-
-    return new Response(superjson.stringify({ document }), { status: 200, headers: { "Content-Type": "application/json" } });
+    const result = await runIdempotent("forms.save", user.id, idempotencyKey, input, async (trx) => {
+      const access = await trx.selectFrom("institutionMemberships")
+        .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
+        .select("institutionMemberships.id")
+        .where("institutionMemberships.institutionId", "=", input.institutionId)
+        .where("institutionMemberships.userId", "=", user.id)
+        .where("institutionMemberships.isActive", "=", true)
+        .where("institutionMemberships.role", "=", "director")
+        .where("institutions.status", "=", "approved")
+        .executeTakeFirst();
+      if (user.role !== "admin" && !access) {
+        return { status: 403, body: { message: "Танҳо роҳбари муассисаи тасдиқшуда метавонад бланкаро сабт кунад." } };
+      }
+      const document = await trx.insertInto("institutionFormDocuments").values({
+        institutionId: input.institutionId,
+        documentType: input.documentType,
+        academicYear: input.academicYear,
+        periodKey: input.periodKey,
+        templateVersion: input.templateVersion,
+        payload: { cells: input.cells },
+        createdBy: user.id,
+      }).onConflict((conflict) => conflict.columns(["institutionId", "documentType", "academicYear", "periodKey"]).doUpdateSet({
+        templateVersion: input.templateVersion,
+        payload: { cells: input.cells },
+        createdBy: user.id,
+        updatedAt: new Date(),
+      })).returning(["id", "documentType", "academicYear", "periodKey", "updatedAt"]).executeTakeFirstOrThrow();
+      return { status: 200, body: { document } };
+    });
+    return new Response(superjson.stringify(result.body), { status: result.status, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : 500;
     const message = error instanceof z.ZodError ? "Маълумоти бланка нодуруст аст." : "Сабти бланка иҷро нашуд.";

@@ -10,12 +10,15 @@ import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLanguage } from "../helpers/i18n";
+import { useAuth } from "../helpers/useAuth";
 
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function TimetablePage() {
   const nav = useNavigate();
   const { t } = useLanguage();
+  const { authState } = useAuth();
+  const userId = authState.type === "authenticated" ? authState.user.id : null;
   const days = ["", t("common.monday"), t("common.tuesday"), t("common.wednesday"), t("common.thursday"), t("common.friday"), t("common.saturday")];
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
@@ -46,11 +49,11 @@ export default function TimetablePage() {
   const [f, setF] = useState({ classId: "", staffId: "", subject: "", weekday: "1", lessonNumber: "1", room: "" });
 
   useEffect(() => {
-    const sync = () => { void syncTimetableSettingsOutbox().catch(() => undefined); };
+    const sync = () => { if (userId !== null) void syncTimetableSettingsOutbox(userId).catch(() => undefined); };
     sync();
     window.addEventListener("online", sync);
     return () => window.removeEventListener("online", sync);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void getInstitutions().then((items) => {
@@ -96,7 +99,8 @@ export default function TimetablePage() {
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault(); setSettingsBusy(true); setErr("");
     try {
-      const result = await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings });
+      if (userId === null) throw new Error("Барои сабти танзимот ворид шудан лозим аст.");
+      const result = await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings }, userId);
       window.alert(result.queued
         ? "Танзимот дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад."
         : "Танзимоти ҷадвали дарсӣ сабт шуд.");

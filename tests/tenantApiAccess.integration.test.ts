@@ -132,6 +132,8 @@ test("institution directors cannot read another institution data or create its s
         headers: {
           cookie: `tjs_edu_session=${token}`,
           "content-type": "application/json",
+          "X-Expected-User-ID": String(userId),
+          "Idempotency-Key": randomUUID(),
         },
         body: superjson.stringify(payload),
       }));

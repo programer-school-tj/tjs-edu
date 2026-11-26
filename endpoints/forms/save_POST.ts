@@ -38,6 +38,10 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const expectedUserId = request.headers.get("X-Expected-User-ID");
+    if (expectedUserId && Number(expectedUserId) !== Number(user.id)) {
+      return new Response(superjson.stringify({ message: "Ҳисоби корбар иваз шудааст. Навбати офлайнро бо ҳисоби соҳиби он ҳамоҳанг кунед." }), { status: 409, headers: { "Content-Type": "application/json" } });
+    }
     const idempotencyKey = request.headers.get("Idempotency-Key") || randomUUID();
     if (!idempotencyKey || idempotencyKey.length > 200) {
       return new Response(superjson.stringify({ message: "Калиди сабти бланк нодуруст аст." }), { status: 400, headers: { "Content-Type": "application/json" } });

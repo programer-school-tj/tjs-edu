@@ -47,6 +47,20 @@ export async function handle(request: Request) {
       return new Response(superjson.stringify({ message: "Калиди сабти бланк нодуруст аст." }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
     const input = schema.parse(superjson.parse(await request.text()));
+    // Reject cross-institution writes before claiming an idempotency key. Keep the
+    // transactional check below as protection against membership changes mid-request.
+    const preflightAccess = await db.selectFrom("institutionMemberships")
+      .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
+      .select("institutionMemberships.id")
+      .where("institutionMemberships.institutionId", "=", input.institutionId)
+      .where("institutionMemberships.userId", "=", user.id)
+      .where("institutionMemberships.isActive", "=", true)
+      .where("institutionMemberships.role", "=", "director")
+      .where("institutions.status", "=", "approved")
+      .executeTakeFirst();
+    if (user.role !== "admin" && !preflightAccess) {
+      return new Response(superjson.stringify({ message: "Танҳо роҳбари муассисаи тасдиқшуда метавонад бланкаро сабт кунад." }), { status: 403, headers: { "Content-Type": "application/json" } });
+    }
     const result = await runIdempotent<{ message?: string; document?: unknown }>("forms.save", user.id, idempotencyKey, input, async (trx) => {
       const access = await trx.selectFrom("institutionMemberships")
         .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")

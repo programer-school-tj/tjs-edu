@@ -13,10 +13,10 @@ export const addTimetable=(x:any)=>call<QuotaResult & {entry:any}>("/_api/timeta
 export type FormDocumentType = "tariffing" | "payroll" | "timetable";
 type FormDocumentInput = {institutionId:string;documentType:FormDocumentType;academicYear:string;periodKey?:string;templateVersion?:string;cells:Record<string,string>};
 const formDocumentScope = (userId:number) => `forms.save:${userId}`;
-async function sendFormDocument(x:FormDocumentInput, operationId:string) {
+async function sendFormDocument(x:FormDocumentInput, operationId:string, userId:number) {
   const response = await fetch("/_api/forms/save", {
     method:"POST", credentials:"include",
-    headers:{"Content-Type":"application/json","Idempotency-Key":operationId},
+    headers:{"Content-Type":"application/json","Idempotency-Key":operationId,"X-Expected-User-ID":String(userId)},
     body:superjson.stringify(x),
   });
   const data = superjson.parse<any>(await response.text());
@@ -41,7 +41,7 @@ export async function syncFormDocumentOutbox(userId:number) {
   const scope=formDocumentScope(userId);
   return flushOutbox(async(operationId,entryScope,payload)=>{
     if(entryScope!==scope) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
-    await sendFormDocument(payload as FormDocumentInput,operationId);
+    await sendFormDocument(payload as FormDocumentInput,operationId,userId);
   },scope);
 }
 export const saveFormDocument=async(x:FormDocumentInput,userId:number)=>{
@@ -49,7 +49,7 @@ export const saveFormDocument=async(x:FormDocumentInput,userId:number)=>{
   await cacheFormDocument({userId,institutionId:payload.institutionId,documentType:payload.documentType,academicYear:payload.academicYear,periodKey:payload.periodKey,templateVersion:payload.templateVersion,cells:payload.cells,updatedAt:Date.now()});
   const operationId=typeof crypto!=="undefined"&&"randomUUID" in crypto?crypto.randomUUID():`form-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   try {
-    await sendFormDocument(payload,operationId);
+    await sendFormDocument(payload,operationId,userId);
     return {saved:true as const};
   } catch(error) {
     const networkFailure=error instanceof TypeError||(typeof navigator!=="undefined"&&navigator.onLine===false);

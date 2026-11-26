@@ -29,7 +29,7 @@ export type TimetableSettings = {
   classDailyLimits: Record<string, number>;
 };
 export const getTimetableSettings=async(institutionId:string,academicYear:string)=>(await call<{settings:TimetableSettings}>(`/_api/timetable-settings/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).settings;
-const TIMETABLE_SETTINGS_SCOPE = "timetable.settings.save";
+const timetableSettingsScope = (userId: number) => `timetable.settings.save:${userId}`;
 async function sendTimetableSettings(payload: {institutionId:string;academicYear:string}&TimetableSettings) {
   const response = await fetch("/_api/timetable-settings/save", {
     method: "POST",
@@ -40,22 +40,24 @@ async function sendTimetableSettings(payload: {institutionId:string;academicYear
   const data = superjson.parse<any>(await response.text());
   if (!response.ok) throw new Error(data.message || "Танзимоти ҷадвал сабт нашуд.");
 }
-export async function syncTimetableSettingsOutbox() {
-  return flushOutbox(async (_operationId, scope, payload) => {
-    if (scope !== TIMETABLE_SETTINGS_SCOPE) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
+export async function syncTimetableSettingsOutbox(userId: number) {
+  const scope = timetableSettingsScope(userId);
+  return flushOutbox(async (_operationId, entryScope, payload) => {
+    if (entryScope !== scope) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
     await sendTimetableSettings(payload as {institutionId:string;academicYear:string}&TimetableSettings);
-  }, TIMETABLE_SETTINGS_SCOPE);
+  }, scope);
 }
-export const saveTimetableSettings=async(x:{institutionId:string;academicYear:string}&TimetableSettings)=>{
+export const saveTimetableSettings=async(x:{institutionId:string;academicYear:string}&TimetableSettings, userId: number)=>{
   try {
     await sendTimetableSettings(x);
     return { saved: true as const };
   } catch (error) {
     const networkFailure = error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
     if (!networkFailure) throw error;
-    const entry = await enqueueOutbox(TIMETABLE_SETTINGS_SCOPE, x);
-    await syncTimetableSettingsOutbox();
-    const pending = await listOutbox(TIMETABLE_SETTINGS_SCOPE);
+    const scope = timetableSettingsScope(userId);
+    const entry = await enqueueOutbox(scope, x);
+    await syncTimetableSettingsOutbox(userId);
+    const pending = await listOutbox(scope);
     return pending.some((item) => item.id === entry.id)
       ? { saved: false as const, queued: true as const }
       : { saved: true as const };

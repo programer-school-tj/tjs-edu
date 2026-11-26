@@ -15,6 +15,10 @@ function jsonResponse(body: unknown, status: number) {
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const expectedUserId = request.headers.get("X-Expected-User-ID");
+    if (expectedUserId && Number(expectedUserId) !== Number(user.id)) {
+      return jsonResponse({ message: "Ҳисоби корбар иваз шудааст. Навбати офлайнро бо ҳисоби соҳиби он ҳамоҳанг кунед." }, 409);
+    }
     const input = schema.parse(superjson.parse(await request.text()));
     const rawKey = request.headers.get("Idempotency-Key");
     const idempotencyKey = rawKey?.trim() || null;

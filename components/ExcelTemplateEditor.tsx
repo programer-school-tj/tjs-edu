@@ -223,6 +223,9 @@ export function ExcelTemplateEditor(props: Props) {
           if (!response.ok) throw new Error("Бланкаи берунии Excel дастрас нест.");
           const buffer = await response.arrayBuffer();
           await workbook.xlsx.load(buffer);
+          // Keep the first successfully downloaded original workbook on this device
+          // so the same form can reopen without a network connection later.
+          try { await saveStoredTemplate(props.documentType, buffer); } catch { /* IndexedDB may be unavailable; continue online. */ }
         }
       } catch {
         // The old template URLs belong to the Floot-hosted environment. Keep

@@ -25,13 +25,14 @@ async function call<T>(url: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
-async function sendAttendance(operationId: string, payload: AttendanceInput): Promise<void> {
+async function sendAttendance(operationId: string, payload: AttendanceInput, userId: number): Promise<void> {
   const response = await fetch("/_api/attendance/save", {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": operationId,
+      "X-Expected-User-ID": String(userId),
     },
     body: superjson.stringify(payload),
   });
@@ -42,7 +43,7 @@ async function sendAttendance(operationId: string, payload: AttendanceInput): Pr
 export async function syncAttendanceOutbox(userId: number): Promise<{ sent: number; failed: number }> {
   return flushOutbox(async (operationId, scope, payload) => {
     if (scope !== attendanceScope(userId)) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
-    await sendAttendance(operationId, payload as AttendanceInput);
+    await sendAttendance(operationId, payload as AttendanceInput, userId);
   }, attendanceScope(userId));
 }
 

@@ -3,6 +3,7 @@ import { db } from "../../helpers/db";
 import { runIdempotent } from "../../helpers/idempotency";
 import { z } from "zod";
 import superjson from "superjson";
+import { randomUUID } from "node:crypto";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -37,7 +38,7 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
-    const idempotencyKey = request.headers.get("Idempotency-Key") || "";
+    const idempotencyKey = request.headers.get("Idempotency-Key") || randomUUID();
     if (!idempotencyKey || idempotencyKey.length > 200) {
       return new Response(superjson.stringify({ message: "Калиди сабти бланк нодуруст аст." }), { status: 400, headers: { "Content-Type": "application/json" } });
     }

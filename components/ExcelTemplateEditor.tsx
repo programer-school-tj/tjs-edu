@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ExcelJS from "exceljs";
 import { createFallbackFinanceTemplate } from "../helpers/fallbackFinanceTemplate";
 import { evaluateFinanceFormula } from "../helpers/financeFormula";
-import { getFormDocument, saveFormDocument } from "../helpers/financeScheduleClient";
+import { getFormDocument, saveFormDocument, syncFormDocumentOutbox } from "../helpers/financeScheduleClient";
 import styles from "./ExcelTemplateEditor.module.css";
 import { useAuth } from "../helpers/useAuth";
 
@@ -279,6 +279,14 @@ export function ExcelTemplateEditor(props: Props) {
   }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, props.templateVersion, periodKey, userId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (userId === null) return;
+    const sync = () => { void syncFormDocumentOutbox(userId).catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [userId]);
 
   const worksheet = worksheetRef.current;
   const mergeInfo = useMemo(() => worksheet ? getMergeMap(worksheet) : { map: new Map<string, MergeInfo>(), hidden: new Set<string>() }, [worksheet, revision]);

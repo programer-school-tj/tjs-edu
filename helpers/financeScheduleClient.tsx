@@ -78,11 +78,11 @@ export type TimetableSettings = {
 };
 export const getTimetableSettings=async(institutionId:string,academicYear:string)=>(await call<{settings:TimetableSettings}>(`/_api/timetable-settings/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${encodeURIComponent(academicYear)}`)).settings;
 const timetableSettingsScope = (userId: number) => `timetable.settings.save:${userId}`;
-async function sendTimetableSettings(payload: {institutionId:string;academicYear:string}&TimetableSettings) {
+async function sendTimetableSettings(payload: {institutionId:string;academicYear:string}&TimetableSettings, userId:number) {
   const response = await fetch("/_api/timetable-settings/save", {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Expected-User-ID": String(userId) },
     body: superjson.stringify(payload),
   });
   const data = superjson.parse<any>(await response.text());
@@ -92,12 +92,12 @@ export async function syncTimetableSettingsOutbox(userId: number) {
   const scope = timetableSettingsScope(userId);
   return flushOutbox(async (_operationId, entryScope, payload) => {
     if (entryScope !== scope) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
-    await sendTimetableSettings(payload as {institutionId:string;academicYear:string}&TimetableSettings);
+    await sendTimetableSettings(payload as {institutionId:string;academicYear:string}&TimetableSettings,userId);
   }, scope);
 }
 export const saveTimetableSettings=async(x:{institutionId:string;academicYear:string}&TimetableSettings, userId: number)=>{
   try {
-    await sendTimetableSettings(x);
+    await sendTimetableSettings(x,userId);
     return { saved: true as const };
   } catch (error) {
     const networkFailure = error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);

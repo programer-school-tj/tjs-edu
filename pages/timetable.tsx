@@ -49,11 +49,11 @@ export default function TimetablePage() {
   const [f, setF] = useState({ classId: "", staffId: "", subject: "", weekday: "1", lessonNumber: "1", room: "" });
 
   useEffect(() => {
-    const sync = () => { if (userId !== null) { void syncTimetableSettingsOutbox(userId).catch(() => undefined); void syncFinanceMutationOutbox(userId, "timetable").catch(() => undefined); } };
+    const sync = () => { if (userId !== null) { void Promise.all([syncTimetableSettingsOutbox(userId), syncFinanceMutationOutbox(userId, "timetable")]).then(() => { if (school) void getTimetable(school, year).then(setRows).catch(() => undefined); }).catch(() => undefined); } };
     sync();
     window.addEventListener("online", sync);
     return () => window.removeEventListener("online", sync);
-  }, [userId]);
+  }, [userId, school, year]);
 
   useEffect(() => {
     void getInstitutions().then((items) => {

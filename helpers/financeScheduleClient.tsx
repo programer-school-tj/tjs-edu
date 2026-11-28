@@ -10,7 +10,11 @@ const financeMutationUrl: Record<FinanceMutationKind, string> = { tariffs: "/_ap
 async function sendFinanceMutation<T>(kind: FinanceMutationKind, payload: unknown, operationId: string, userId: number): Promise<T> {
   const response = await fetch(financeMutationUrl[kind], { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "Idempotency-Key": operationId, "X-Expected-User-ID": String(userId) }, body: superjson.stringify(payload) });
   const data = superjson.parse<any>(await response.text());
-  if (!response.ok) throw new Error(data.message || "Амалиёт иҷро нашуд.");
+  if (!response.ok) {
+    const message = data.message || "Амалиёт иҷро нашуд.";
+    if (response.status >= 500) throw new TypeError(message);
+    throw new Error(message);
+  }
   return data as T;
 }
 export async function syncFinanceMutationOutbox(userId: number, kind: FinanceMutationKind) {
@@ -25,7 +29,7 @@ async function createFinanceRecord<T extends QuotaResult>(kind: FinanceMutationK
   const operationId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${kind}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   try { return await sendFinanceMutation<T>(kind, payload, operationId, userId); }
   catch (error) {
-    const networkFailure = error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
+    const networkFailure = error instanceof TypeError;
     if (!networkFailure) throw error;
     const scope = financeMutationScope(kind, userId);
     await enqueueOutbox(scope, payload, operationId);

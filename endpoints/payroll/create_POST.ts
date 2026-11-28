@@ -5,6 +5,8 @@ import { z } from "zod";
 import superjson from "superjson";
 import { aggregateFinanceRuleValues, getFinanceRuleTarget, matchesFinanceRule, type FinanceRuleInput, type FinanceRuleTarget } from "../../helpers/financeRuleCalculation";
 import type { JsonArray } from "../../helpers/schema";
+import { randomUUID } from "node:crypto";
+import { runIdempotent } from "../../helpers/idempotency";
 
 const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-7;
 
@@ -34,6 +36,14 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const expectedUserId = request.headers.get("X-Expected-User-ID");
+    if (expectedUserId && Number(expectedUserId) !== Number(user.id)) {
+      return new Response(superjson.stringify({ message: "Ҳисоби корбар иваз шудааст. Навбати офлайнро бо ҳисоби соҳиби он ҳамоҳанг кунед." }), { status: 409 });
+    }
+    const idempotencyKey = request.headers.get("Idempotency-Key") || randomUUID();
+    if (!idempotencyKey.trim() || idempotencyKey.length > 200) {
+      return new Response(superjson.stringify({ message: "Калиди амалиёт нодуруст аст." }), { status: 400 });
+    }
     const x = schema.parse(superjson.parse(await request.text()));
     const access = await db.selectFrom("institutionMemberships")
       .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
@@ -47,7 +57,8 @@ export async function handle(request: Request) {
       return new Response(superjson.stringify({ message: "Танҳо директори муассисаи тасдиқшуда метавонад табели маошро сабт кунад." }), { status: 403 });
     }
 
-    const outcome = await withPlanQuota(x.institutionId, "payroll", async (trx) => {
+    const outcome = await runIdempotent("payroll.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
+      const quotaOutcome = await withPlanQuota(x.institutionId, "payroll", async (trx) => {
       const staff = await trx.selectFrom("institutionStaff").select(["id", "positionTitle"])
         .where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst();
       if (!staff) throw new Error("STAFF_NOT_FOUND");
@@ -180,8 +191,10 @@ export async function handle(request: Request) {
         otherDeductions: otherDeductionsCents / 100,
         deductions, netAmount, notes: x.notes || null, createdBy: user.id,
       }).returningAll().executeTakeFirstOrThrow();
+      }, idempotentTrx);
+      return { status: 201, body: { entry: quotaOutcome.result, operationCount: quotaOutcome.operationCount, plan: quotaOutcome.plan } };
     });
-    return new Response(superjson.stringify({ entry: outcome.result, operationCount: outcome.operationCount, plan: outcome.plan }), { status: 201, headers: { "Content-Type": "application/json" } });
+    return new Response(superjson.stringify(outcome.body), { status: outcome.status, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     const databaseCode = (error as { code?: string })?.code;

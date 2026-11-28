@@ -3,6 +3,8 @@ import { db } from "../../helpers/db";
 import { withPlanQuota } from "../../helpers/planQuota";
 import { z } from "zod";
 import superjson from "superjson";
+import { randomUUID } from "node:crypto";
+import { runIdempotent } from "../../helpers/idempotency";
 
 const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-7;
 
@@ -39,6 +41,14 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const expectedUserId = request.headers.get("X-Expected-User-ID");
+    if (expectedUserId && Number(expectedUserId) !== Number(user.id)) {
+      return new Response(superjson.stringify({ message: "Ҳисоби корбар иваз шудааст. Навбати офлайнро бо ҳисоби соҳиби он ҳамоҳанг кунед." }), { status: 409 });
+    }
+    const idempotencyKey = request.headers.get("Idempotency-Key") || randomUUID();
+    if (!idempotencyKey.trim() || idempotencyKey.length > 200) {
+      return new Response(superjson.stringify({ message: "Калиди амалиёт нодуруст аст." }), { status: 400 });
+    }
     const x = schema.parse(superjson.parse(await request.text()));
     const access = await db.selectFrom("institutionMemberships")
       .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
@@ -54,7 +64,20 @@ export async function handle(request: Request) {
       return new Response(superjson.stringify({ message: "Танҳо директори муассисаи тасдиқшуда метавонад тариф ворид кунад." }), { status: 403 });
     }
 
-    const outcome = await withPlanQuota(x.institutionId, "tariffs", async (trx) => {
+    const outcome = await runIdempotent<{ message?: string; tariff?: unknown; operationCount?: number; plan?: "free" | "pro" }>("tariffs.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
+      const transactionalAccess = await idempotentTrx.selectFrom("institutionMemberships")
+        .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
+        .select("institutionMemberships.id")
+        .where("institutionMemberships.institutionId", "=", x.institutionId)
+        .where("institutionMemberships.userId", "=", user.id)
+        .where("institutionMemberships.isActive", "=", true)
+        .where("institutionMemberships.role", "=", "director")
+        .where("institutions.status", "=", "approved")
+        .executeTakeFirst();
+      if (user.role !== "admin" && !transactionalAccess) {
+        return { status: 403, body: { message: "Танҳо директори муассисаи тасдиқшуда метавонад тариф ворид кунад." } };
+      }
+      const quotaOutcome = await withPlanQuota(x.institutionId, "tariffs", async (trx) => {
       if (x.staffId) {
         const staff = await trx.selectFrom("institutionStaff")
           .select(["id", "positionTitle"])
@@ -106,13 +129,11 @@ export async function handle(request: Request) {
         notes: x.notes || null,
         createdBy: user.id,
       }).returningAll().executeTakeFirstOrThrow();
+      }, idempotentTrx);
+      return { status: 201, body: { tariff: quotaOutcome.result, operationCount: quotaOutcome.operationCount, plan: quotaOutcome.plan } };
     });
 
-    return new Response(superjson.stringify({
-      tariff: outcome.result,
-      operationCount: outcome.operationCount,
-      plan: outcome.plan,
-    }), { status: 201, headers: { "Content-Type": "application/json" } });
+    return new Response(superjson.stringify(outcome.body), { status: outcome.status, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     const isAuthError = (error as { name?: string })?.name === "NotAuthenticatedError";

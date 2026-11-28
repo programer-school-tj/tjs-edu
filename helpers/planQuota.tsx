@@ -4,13 +4,18 @@ import type { DB } from "./schema";
 
 export type LimitedModule = "timetable" | "tariffs" | "payroll";
 
-/** Executes a create operation and consumes its FREE allowance in the same transaction. */
+/**
+ * Executes a create operation and consumes its FREE allowance in the same transaction.
+ * An optional transaction lets callers combine quota accounting with idempotency and
+ * the business write, so a retry can never consume quota or create a second record.
+ */
 export async function withPlanQuota<T>(
   institutionId: string,
   moduleKey: LimitedModule,
   operation: (trx: Transaction<DB>) => Promise<T>,
+  existingTransaction?: Transaction<DB>,
 ): Promise<{ result: T; operationCount: number; plan: "free" | "pro" }> {
-  return db.transaction().execute(async (trx) => {
+  const execute = async (trx: Transaction<DB>) => {
     const institution = await trx.selectFrom("institutions")
       .select(["plan", "planExpiresAt"])
       .where("id", "=", institutionId)
@@ -42,6 +47,10 @@ export async function withPlanQuota<T>(
     }
 
     const result = await operation(trx);
-    return { result, operationCount: nextCount, plan: effectivePlan };
-  });
+    return { result, operationCount: nextCount, plan: effectivePlan as "free" | "pro" };
+  };
+
+  return existingTransaction
+    ? execute(existingTransaction)
+    : db.transaction().execute(execute);
 }

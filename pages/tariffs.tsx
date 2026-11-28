@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
-import { getTariffs, addTariff, adjustTariffs } from "../helpers/financeScheduleClient";
+import { getTariffs, addTariff, adjustTariffs, syncFinanceMutationOutbox } from "../helpers/financeScheduleClient";
 import { getStaff } from "../helpers/staffClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
@@ -9,12 +9,15 @@ import { buildTariffTemplateCells } from "../helpers/financeTemplateMapping";
 import styles from "./tariffs.module.css";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLanguage } from "../helpers/i18n";
+import { useAuth } from "../helpers/useAuth";
 
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function TariffsPage() {
   const nav = useNavigate();
   const { t } = useLanguage();
+  const { authState } = useAuth();
+  const userId = authState.type === "authenticated" ? authState.user.id : null;
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [rows, setRows] = useState<any[]>([]);
@@ -25,6 +28,14 @@ export default function TariffsPage() {
   const [f, setF] = useState({ staffId: "", positionTitle: "Омӯзгор", educationLevel: "Маълумоти олӣ", qualificationCategory: "Бе категория", weeklyHours: "18", monthlyBase: "", effectiveFrom: "2026-09-01", effectiveTo: "", academicYear: "2026-2027", sourceTitle: "", sourceReference: "", notes: "" });
   const [adjustment, setAdjustment] = useState({ percent: "", effectiveFrom: "", positionTitle: "", sourceTitle: "", sourceReference: "", notes: "" });
   const [adjustmentBusy, setAdjustmentBusy] = useState(false);
+  useEffect(() => {
+    if (userId === null) return;
+    const sync = () => { void syncFinanceMutationOutbox(userId, "tariffs").then((result) => { const failed = result.permanentFailures[0]; if (failed) setErr(failed.lastError || "Сабти офлайн рад карда шуд."); else if (school) void getTariffs(school).then(setRows).catch(() => undefined); }).catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [userId, school]);
+
 
   useEffect(() => {
     void getInstitutions().then((items) => {
@@ -39,9 +50,13 @@ export default function TariffsPage() {
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setErr("");
     try {
-      const result = await addTariff({ institutionId: school, ...f, staffId: f.staffId || undefined, weeklyHours: f.weeklyHours ? Number(f.weeklyHours) : undefined, monthlyBase: Number(f.monthlyBase), effectiveTo: f.effectiveTo || undefined });
-      if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
-      setRows(await getTariffs(school));
+      if (userId === null) throw new Error("Ҳисоби корбар тасдиқ нашудааст.");
+      const result = await addTariff({ institutionId: school, ...f, staffId: f.staffId || undefined, weeklyHours: f.weeklyHours ? Number(f.weeklyHours) : undefined, monthlyBase: Number(f.monthlyBase), effectiveTo: f.effectiveTo || undefined }, userId);
+      if (result.queued) { setErr("Маълумоти тарификатсия дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад."); }
+      else {
+        if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
+        setRows(await getTariffs(school));
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Ҳадди 5 амалиёти ройгони")) setQuotaNotice("limit");
       setErr(error instanceof Error ? error.message : t("finance.tariffSaveError"));

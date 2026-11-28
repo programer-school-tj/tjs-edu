@@ -4,18 +4,21 @@ import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getClasses } from "../helpers/educationClient";
 import { getStaff } from "../helpers/staffClient";
-import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability, getTimetableSettings, saveTimetableSettings, syncTimetableSettingsOutbox } from "../helpers/financeScheduleClient";
+import { getTimetable, addTimetable, getTeachingLoads, addTeachingLoad, generateTimetable, importTimetableRows, getStaffAvailability, saveStaffAvailability, getTimetableSettings, saveTimetableSettings, syncTimetableSettingsOutbox, syncFinanceMutationOutbox } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import styles from "./timetable.module.css";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLanguage } from "../helpers/i18n";
+import { useAuth } from "../helpers/useAuth";
 
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function TimetablePage() {
   const nav = useNavigate();
   const { t } = useLanguage();
+  const { authState } = useAuth();
+  const userId = authState.type === "authenticated" ? authState.user.id : null;
   const days = ["", t("common.monday"), t("common.tuesday"), t("common.wednesday"), t("common.thursday"), t("common.friday"), t("common.saturday")];
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
@@ -46,11 +49,11 @@ export default function TimetablePage() {
   const [f, setF] = useState({ classId: "", staffId: "", subject: "", weekday: "1", lessonNumber: "1", room: "" });
 
   useEffect(() => {
-    const sync = () => { void syncTimetableSettingsOutbox().catch(() => undefined); };
+    const sync = () => { if (userId !== null) { void Promise.all([syncTimetableSettingsOutbox(userId), syncFinanceMutationOutbox(userId, "timetable")]).then((results) => { const failed = results[1].permanentFailures[0]; if (failed) setErr(failed.lastError || "Сабти офлайн рад карда шуд."); else if (school) void getTimetable(school, year).then(setRows).catch(() => undefined); }).catch(() => undefined); } };
     sync();
     window.addEventListener("online", sync);
     return () => window.removeEventListener("online", sync);
-  }, []);
+  }, [userId, school, year]);
 
   useEffect(() => {
     void getInstitutions().then((items) => {
@@ -96,7 +99,8 @@ export default function TimetablePage() {
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault(); setSettingsBusy(true); setErr("");
     try {
-      const result = await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings });
+      if (userId === null) throw new Error("Барои сабти танзимот ворид шудан лозим аст.");
+      const result = await saveTimetableSettings({ institutionId: school, academicYear: year, ...timetableSettings }, userId);
       window.alert(result.queued
         ? "Танзимот дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад."
         : "Танзимоти ҷадвали дарсӣ сабт шуд.");
@@ -233,9 +237,13 @@ export default function TimetablePage() {
     setBusy(true);
     setErr("");
     try {
-      const result = await addTimetable({ institutionId: school, ...f, weekday: Number(f.weekday), lessonNumber: Number(f.lessonNumber), academicYear: year });
-      if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
-      setRows(await getTimetable(school, year));
+      if (userId === null) throw new Error("Ҳисоби корбар тасдиқ нашудааст.");
+      const result = await addTimetable({ institutionId: school, ...f, weekday: Number(f.weekday), lessonNumber: Number(f.lessonNumber), academicYear: year }, userId);
+      if (result.queued) { setErr("Сабти дарс дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад."); }
+      else {
+        if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
+        setRows(await getTimetable(school, year));
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Ҳадди 5 амалиёти ройгони")) setQuotaNotice("limit");
       setErr(error instanceof Error ? error.message : t("timetable.errorSaveLesson"));

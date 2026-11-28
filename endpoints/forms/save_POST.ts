@@ -1,7 +1,9 @@
 import { getServerUserSession } from "../../helpers/getServerUserSession";
 import { db } from "../../helpers/db";
+import { runIdempotent } from "../../helpers/idempotency";
 import { z } from "zod";
 import superjson from "superjson";
+import { randomUUID } from "node:crypto";
 
 const schema = z.object({
   institutionId: z.string().uuid(),
@@ -21,7 +23,7 @@ const schema = z.object({
     ? { minRow: 5, maxRow: 142, maxColumn: 26 }
     : input.documentType === "payroll"
       ? { minRow: 5, maxRow: 142, maxColumn: 30 }
-      : { minRow: 4, maxRow: 81, maxColumn: 27 };
+      : { minRow: 4, maxRow: 81, maxColumn: 91 };
   for (const address of Object.keys(input.cells)) {
     const match = /^([A-Z]{1,3})([1-9][0-9]*)$/.exec(address);
     if (!match) continue;
@@ -36,8 +38,18 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const expectedUserId = request.headers.get("X-Expected-User-ID");
+    if (expectedUserId && Number(expectedUserId) !== Number(user.id)) {
+      return new Response(superjson.stringify({ message: "Ҳисоби корбар иваз шудааст. Навбати офлайнро бо ҳисоби соҳиби он ҳамоҳанг кунед." }), { status: 409, headers: { "Content-Type": "application/json" } });
+    }
+    const idempotencyKey = request.headers.get("Idempotency-Key") || randomUUID();
+    if (!idempotencyKey || idempotencyKey.length > 200) {
+      return new Response(superjson.stringify({ message: "Калиди сабти бланк нодуруст аст." }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
     const input = schema.parse(superjson.parse(await request.text()));
-    const access = await db.selectFrom("institutionMemberships")
+    // Reject cross-institution writes before claiming an idempotency key. Keep the
+    // transactional check below as protection against membership changes mid-request.
+    const preflightAccess = await db.selectFrom("institutionMemberships")
       .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
       .select("institutionMemberships.id")
       .where("institutionMemberships.institutionId", "=", input.institutionId)
@@ -46,24 +58,39 @@ export async function handle(request: Request) {
       .where("institutionMemberships.role", "=", "director")
       .where("institutions.status", "=", "approved")
       .executeTakeFirst();
-    if (user.role !== "admin" && !access) return new Response(superjson.stringify({ message: "Танҳо роҳбари муассисаи тасдиқшуда метавонад бланкаро сабт кунад." }), { status: 403 });
-
-    const document = await db.insertInto("institutionFormDocuments").values({
-      institutionId: input.institutionId,
-      documentType: input.documentType,
-      academicYear: input.academicYear,
-      periodKey: input.periodKey,
-      templateVersion: input.templateVersion,
-      payload: { cells: input.cells },
-      createdBy: user.id,
-    }).onConflict((conflict) => conflict.columns(["institutionId", "documentType", "academicYear", "periodKey"]).doUpdateSet({
-      templateVersion: input.templateVersion,
-      payload: { cells: input.cells },
-      createdBy: user.id,
-      updatedAt: new Date(),
-    })).returning(["id", "documentType", "academicYear", "periodKey", "updatedAt"]).executeTakeFirstOrThrow();
-
-    return new Response(superjson.stringify({ document }), { status: 200, headers: { "Content-Type": "application/json" } });
+    if (user.role !== "admin" && !preflightAccess) {
+      return new Response(superjson.stringify({ message: "Танҳо роҳбари муассисаи тасдиқшуда метавонад бланкаро сабт кунад." }), { status: 403, headers: { "Content-Type": "application/json" } });
+    }
+    const result = await runIdempotent<{ message?: string; document?: unknown }>("forms.save", user.id, idempotencyKey, input, async (trx) => {
+      const access = await trx.selectFrom("institutionMemberships")
+        .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
+        .select("institutionMemberships.id")
+        .where("institutionMemberships.institutionId", "=", input.institutionId)
+        .where("institutionMemberships.userId", "=", user.id)
+        .where("institutionMemberships.isActive", "=", true)
+        .where("institutionMemberships.role", "=", "director")
+        .where("institutions.status", "=", "approved")
+        .executeTakeFirst();
+      if (user.role !== "admin" && !access) {
+        return { status: 403, body: { message: "Танҳо роҳбари муассисаи тасдиқшуда метавонад бланкаро сабт кунад." } };
+      }
+      const document = await trx.insertInto("institutionFormDocuments").values({
+        institutionId: input.institutionId,
+        documentType: input.documentType,
+        academicYear: input.academicYear,
+        periodKey: input.periodKey,
+        templateVersion: input.templateVersion,
+        payload: { cells: input.cells },
+        createdBy: user.id,
+      }).onConflict((conflict) => conflict.columns(["institutionId", "documentType", "academicYear", "periodKey"]).doUpdateSet({
+        templateVersion: input.templateVersion,
+        payload: { cells: input.cells },
+        createdBy: user.id,
+        updatedAt: new Date(),
+      })).returning(["id", "documentType", "academicYear", "periodKey", "updatedAt"]).executeTakeFirstOrThrow();
+      return { status: 200, body: { document } };
+    });
+    return new Response(superjson.stringify(result.body), { status: result.status, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     const status = (error as { name?: string })?.name === "NotAuthenticatedError" ? 401 : error instanceof z.ZodError ? 400 : 500;
     const message = error instanceof z.ZodError ? "Маълумоти бланка нодуруст аст." : "Сабти бланка иҷро нашуд.";

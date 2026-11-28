@@ -132,6 +132,8 @@ test("institution directors cannot read another institution data or create its s
         headers: {
           cookie: `tjs_edu_session=${token}`,
           "content-type": "application/json",
+          "X-Expected-User-ID": String(userId),
+          "Idempotency-Key": randomUUID(),
         },
         body: superjson.stringify(payload),
       }));
@@ -173,6 +175,39 @@ test("institution directors cannot read another institution data or create its s
       const pendingWrite = await postForeign(name, handle, pendingPayload);
       assert.equal(pendingWrite.status, 403, `pending institution must not accept ${name} writes before approval`);
     }
+
+    const { handle: createTariff } = await import("../endpoints/tariffs/create_POST");
+    const tariffKey = `tariff-idempotency-${suffix}`;
+    const tariffPayload = {
+      institutionId: institutionA!,
+      positionTitle: "Teacher",
+      monthlyBase: 1000,
+      effectiveFrom: "2026-09-01",
+      academicYear: "2026-2027",
+    };
+    const createTariffRequest = () => createTariff(new Request("http://localhost/_api/tariffs/create", {
+      method: "POST",
+      headers: {
+        cookie: `tjs_edu_session=${token}`,
+        "content-type": "application/json",
+        "X-Expected-User-ID": String(userId),
+        "Idempotency-Key": tariffKey,
+      },
+      body: superjson.stringify(tariffPayload),
+    }));
+    const existingTariffKeys = await sql`SELECT idempotency_key FROM api_idempotency_keys WHERE scope = 'tariffs.create' AND user_id = ${userId!} AND idempotency_key = ${tariffKey}`;
+    assert.equal(existingTariffKeys.length, 0, "tariff idempotency key must be new before the first request");
+    const firstTariffResponse = await createTariffRequest();
+    assert.equal(firstTariffResponse.status, 201, `first authorized tariff create should succeed: ${await firstTariffResponse.clone().text()}`);
+    const retryTariffResponse = await createTariffRequest();
+    assert.equal(retryTariffResponse.status, 201, "retry with the same idempotency key should replay success");
+    const firstTariff = superjson.parse<{ tariff: { id: string } }>(await firstTariffResponse.text());
+    const retriedTariff = superjson.parse<{ tariff?: { id: string } }>(await retryTariffResponse.text());
+    assert.ok(retriedTariff?.tariff, `retry response must include the original tariff: ${JSON.stringify(retriedTariff)}`);
+    assert.ok(firstTariff?.tariff, `first response must include the created tariff: ${JSON.stringify(firstTariff)}`);
+    assert.equal(retriedTariff.tariff.id, firstTariff.tariff.id, "retry must return the original tariff, not create another");
+    const [tariffCount] = await sql`SELECT count(*)::int AS total FROM institution_tariffs WHERE institution_id = ${institutionA!}`;
+    assert.equal(Number(tariffCount.total), 1, "idempotent retry must create exactly one tariff row");
 
     const { handle: createStaff } = await import("../endpoints/staff/create_POST");
 

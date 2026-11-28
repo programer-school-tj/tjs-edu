@@ -19,6 +19,10 @@ const schema = z.object({
 export async function handle(request: Request) {
   try {
     const { user } = await getServerUserSession(request);
+    const expectedUserId = request.headers.get("X-Expected-User-ID");
+    if (expectedUserId && Number(expectedUserId) !== Number(user.id)) {
+      return new Response(superjson.stringify({ message: "Ҳисоби корбар иваз шудааст. Навбати офлайнро бо ҳисоби соҳиби он ҳамоҳанг кунед." }), { status: 409, headers: { "Content-Type": "application/json" } });
+    }
     const x = schema.parse(superjson.parse(await request.text()));
     const access = await db.selectFrom("institutionMemberships")
       .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")

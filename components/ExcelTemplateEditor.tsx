@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ExcelJS from "exceljs";
 import { createFallbackFinanceTemplate } from "../helpers/fallbackFinanceTemplate";
 import { evaluateFinanceFormula } from "../helpers/financeFormula";
-import { getFormDocument, saveFormDocument } from "../helpers/financeScheduleClient";
+import { getFormDocument, saveFormDocument, syncFormDocumentOutbox } from "../helpers/financeScheduleClient";
 import styles from "./ExcelTemplateEditor.module.css";
+import { useAuth } from "../helpers/useAuth";
 
 type DocumentType = "tariffing" | "payroll" | "timetable";
 type Props = {
@@ -199,10 +200,12 @@ export function ExcelTemplateEditor(props: Props) {
   const [notice, setNotice] = useState("");
   const [revision, setRevision] = useState(0);
   const periodKey = props.periodKey || "";
+  const { authState } = useAuth();
+  const userId = authState.type === "authenticated" ? authState.user.id : null;
 
   const load = useCallback(async () => {
-    if (!props.institutionId) return;
-    const documentKey = [props.institutionId, props.documentType, props.academicYear, periodKey, props.templateVersion || "2026-11-19-original-forms-v1"].join("|");
+    if (!props.institutionId || userId === null) return;
+    const documentKey = [userId, props.institutionId, props.documentType, props.academicYear, periodKey, props.templateVersion || "2026-11-19-original-forms-v1"].join("|");
     const pendingEdits = documentKeyRef.current === documentKey ? { ...dirtyCellsRef.current } : {};
     setBusy(true); setError(""); setNotice(""); setReady(false);
     try {
@@ -220,6 +223,9 @@ export function ExcelTemplateEditor(props: Props) {
           if (!response.ok) throw new Error("Бланкаи берунии Excel дастрас нест.");
           const buffer = await response.arrayBuffer();
           await workbook.xlsx.load(buffer);
+          // Keep the first successfully downloaded original workbook on this device
+          // so the same form can reopen without a network connection later.
+          try { await saveStoredTemplate(props.documentType, buffer); } catch { /* IndexedDB may be unavailable; continue online. */ }
         }
       } catch {
         // The old template URLs belong to the Floot-hosted environment. Keep
@@ -241,7 +247,7 @@ export function ExcelTemplateEditor(props: Props) {
         const target = worksheet.getCell(address);
         if (!isFormulaCell(target)) target.value = value;
       });
-      const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey);
+      const saved = await getFormDocument(props.institutionId, props.documentType, props.academicYear, periodKey, userId);
       const storedVersion = String(saved?.templateVersion || "");
       const currentVersion = props.templateVersion || "2026-11-19-original-forms-v1";
       const storedCells = (saved?.payload?.cells || {}) as Record<string, string>;
@@ -273,9 +279,17 @@ export function ExcelTemplateEditor(props: Props) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Бланка кушода нашуд.");
     } finally { setBusy(false); }
-  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, props.templateVersion, periodKey]);
+  }, [props.institutionId, props.templateUrl, props.documentType, props.academicYear, props.worksheetName, props.prefillCells, props.templateVersion, periodKey, userId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (userId === null) return;
+    const sync = () => { void syncFormDocumentOutbox(userId).catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [userId]);
 
   const worksheet = worksheetRef.current;
   const mergeInfo = useMemo(() => worksheet ? getMergeMap(worksheet) : { map: new Map<string, MergeInfo>(), hidden: new Set<string>() }, [worksheet, revision]);
@@ -304,16 +318,16 @@ export function ExcelTemplateEditor(props: Props) {
   };
 
   const save = async () => {
-    if (!worksheetRef.current || !props.institutionId) return;
+    if (!worksheetRef.current || !props.institutionId || userId === null) return;
     setBusy(true); setError(""); setNotice("");
     try {
       // Persist only user-edited cells. This keeps auto-filled staff data dynamic
       // for newly added employees while preserving intentional manual clearing.
       const cells = { ...savedCellsRef.current, ...dirtyCellsRef.current };
-      await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: props.templateVersion || "2026-11-19-original-forms-v1", cells });
+      const result = await saveFormDocument({ institutionId: props.institutionId, documentType: props.documentType, academicYear: props.academicYear, periodKey, templateVersion: props.templateVersion || "2026-11-19-original-forms-v1", cells }, userId);
       savedCellsRef.current = cells;
       dirtyCellsRef.current = {};
-      setDirty(false); setNotice("Тағйиротҳо дар пойгоҳи додаҳо сабт шуданд.");
+      setDirty(false); setNotice(result.queued ? "Маълумот дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ба сервер фиристода мешавад." : "Тағйиротҳо сабт шуданд.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Сабт иҷро нашуд.");
     } finally { setBusy(false); }

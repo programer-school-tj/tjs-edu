@@ -9,6 +9,7 @@ export interface OutboxEntry<T = unknown> {
   updatedAt: number;
   attempts: number;
   lastError?: string;
+  retryable?: boolean;
 }
 
 const DATABASE_NAME = "tjs-edu-offline";
@@ -57,11 +58,11 @@ function createId(): string {
 }
 
 /** Adds a durable local operation. Keep the returned id as the server idempotency key. */
-export async function enqueueOutbox<T>(scope: string, payload: T): Promise<OutboxEntry<T>> {
+export async function enqueueOutbox<T>(scope: string, payload: T, operationId = createId()): Promise<OutboxEntry<T>> {
   if (!scope.trim()) throw new Error("Scope-и амалиёт холӣ буда наметавонад.");
   const now = Date.now();
   const entry: OutboxEntry<T> = {
-    id: createId(),
+    id: operationId,
     scope,
     payload,
     status: "queued",
@@ -157,6 +158,11 @@ async function claimEntry(id: string): Promise<boolean> {
     }
 
     const leaseExpired = Date.now() - current.updatedAt > 2 * 60 * 1000;
+    if (current.status === "failed" && current.retryable === false) {
+      await transactionDone(transaction);
+      return false;
+    }
+
     if (current.status === "syncing" && !leaseExpired) {
       await transactionDone(transaction);
       return false;

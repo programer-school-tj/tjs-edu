@@ -46,11 +46,11 @@ export async function runIdempotent<T>(
     `.execute(trx);
 
     const stored = await sql<{
-      requestHash: string;
-      responseStatus: number | null;
-      responseBody: T | null;
+      requesthash: string;
+      responsestatus: number | null;
+      responsebody: T | null;
     }>`
-      SELECT request_hash AS "requestHash", response_status AS "responseStatus", response_body AS "responseBody"
+      SELECT request_hash AS requesthash, response_status AS responsestatus, response_body AS responsebody
       FROM api_idempotency_keys
       WHERE scope = ${scope}
         AND user_id = ${userId}
@@ -61,7 +61,7 @@ export async function runIdempotent<T>(
     const existing = stored.rows[0];
     if (!existing) throw new Error("Сабти калиди амалиёт дастрас нест.");
 
-    if (existing.requestHash !== requestHash) {
+    if (existing.requesthash !== requestHash) {
       return {
         status: 409,
         body: { message: "Ин калиди амалиёт бо маълумоти дигар истифода шудааст." } as T,
@@ -69,10 +69,10 @@ export async function runIdempotent<T>(
       };
     }
 
-    if (existing.responseStatus !== null) {
+    if (existing.responsestatus !== null) {
       return {
-        status: existing.responseStatus,
-        body: existing.responseBody as T,
+        status: existing.responsestatus,
+        body: existing.responsebody as T,
         replayed: true,
       };
     }

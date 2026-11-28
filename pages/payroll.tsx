@@ -18,13 +18,6 @@ export default function PayrollPage() {
   const { t } = useLanguage();
   const { authState } = useAuth();
   const userId = authState.type === "authenticated" ? authState.user.id : null;
-  useEffect(() => {
-    if (userId === null) return;
-    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").then(() => { if (school) void getPayroll(school, month).then(setRows).catch(() => undefined); }).catch(() => undefined); };
-    sync();
-    window.addEventListener("online", sync);
-    return () => window.removeEventListener("online", sync);
-  }, [userId, school, month];
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [staff, setStaff] = useState<any[]>([]);
@@ -38,6 +31,14 @@ export default function PayrollPage() {
   const [previewError, setPreviewError] = useState("");
   const [quotaNotice, setQuotaNotice] = useState<QuotaNotice>(null);
   const [f, setF] = useState({ staffId: "", tariffId: "", baseAmount: "", workRate: "1", weeklyHours: "0", workingDays: "0", classHeadAllowance: "0", notebookCheckingAllowance: "0", methodicalAssociationHeadAllowance: "0", otherAllowances: "0", incomeTaxDeduction: "0", partyDuesDeduction: "0", tradeUnionDuesDeduction: "0", newspaperDeduction: "0", otherDeductions: "0", notes: "" });
+  useEffect(() => {
+    if (userId === null) return;
+    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").then(() => { if (school) void getPayroll(school, month).then(setRows).catch(() => undefined); }).catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [userId, school, month]);
+
 
   useEffect(() => {
     void getInstitutions().then((items) => {

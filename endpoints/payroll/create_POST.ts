@@ -57,7 +57,7 @@ export async function handle(request: Request) {
       return new Response(superjson.stringify({ message: "Танҳо директори муассисаи тасдиқшуда метавонад табели маошро сабт кунад." }), { status: 403 });
     }
 
-    const outcome = await runIdempotent("payroll.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
+    const outcome = await runIdempotent<{ message?: string; entry?: unknown; operationCount?: number; plan?: "free" | "pro" }>("payroll.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
       const transactionalAccess = await idempotentTrx.selectFrom("institutionMemberships")
         .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
         .select("institutionMemberships.id")

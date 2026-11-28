@@ -18,13 +18,6 @@ export default function TariffsPage() {
   const { t } = useLanguage();
   const { authState } = useAuth();
   const userId = authState.type === "authenticated" ? authState.user.id : null;
-  useEffect(() => {
-    if (userId === null) return;
-    const sync = () => { void syncFinanceMutationOutbox(userId, "tariffs").then(() => { if (school) void getTariffs(school).then(setRows).catch(() => undefined); }).catch(() => undefined); };
-    sync();
-    window.addEventListener("online", sync);
-    return () => window.removeEventListener("online", sync);
-  }, [userId, school]);
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [rows, setRows] = useState<any[]>([]);
@@ -35,6 +28,14 @@ export default function TariffsPage() {
   const [f, setF] = useState({ staffId: "", positionTitle: "Омӯзгор", educationLevel: "Маълумоти олӣ", qualificationCategory: "Бе категория", weeklyHours: "18", monthlyBase: "", effectiveFrom: "2026-09-01", effectiveTo: "", academicYear: "2026-2027", sourceTitle: "", sourceReference: "", notes: "" });
   const [adjustment, setAdjustment] = useState({ percent: "", effectiveFrom: "", positionTitle: "", sourceTitle: "", sourceReference: "", notes: "" });
   const [adjustmentBusy, setAdjustmentBusy] = useState(false);
+  useEffect(() => {
+    if (userId === null) return;
+    const sync = () => { void syncFinanceMutationOutbox(userId, "tariffs").then(() => { if (school) void getTariffs(school).then(setRows).catch(() => undefined); }).catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [userId, school]);
+
 
   useEffect(() => {
     void getInstitutions().then((items) => {

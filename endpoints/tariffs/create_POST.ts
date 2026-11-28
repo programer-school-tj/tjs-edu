@@ -65,6 +65,18 @@ export async function handle(request: Request) {
     }
 
     const outcome = await runIdempotent("tariffs.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
+      const transactionalAccess = await idempotentTrx.selectFrom("institutionMemberships")
+        .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
+        .select("institutionMemberships.id")
+        .where("institutionMemberships.institutionId", "=", x.institutionId)
+        .where("institutionMemberships.userId", "=", user.id)
+        .where("institutionMemberships.isActive", "=", true)
+        .where("institutionMemberships.role", "=", "director")
+        .where("institutions.status", "=", "approved")
+        .executeTakeFirst();
+      if (user.role !== "admin" && !transactionalAccess) {
+        return { status: 403, body: { message: "Танҳо директори муассисаи тасдиқшуда метавонад тариф ворид кунад." } };
+      }
       const quotaOutcome = await withPlanQuota(x.institutionId, "tariffs", async (trx) => {
       if (x.staffId) {
         const staff = await trx.selectFrom("institutionStaff")

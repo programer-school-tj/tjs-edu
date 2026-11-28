@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInstitutions } from "../endpoints/institutions/create_POST.schema";
 import { getStaff } from "../helpers/staffClient";
-import { getPayroll, addPayroll, getTariffs, previewPayroll } from "../helpers/financeScheduleClient";
+import { getPayroll, addPayroll, getTariffs, previewPayroll, syncFinanceMutationOutbox } from "../helpers/financeScheduleClient";
 import { PlanQuotaNotice } from "../components/PlanQuotaNotice";
 import { ExcelTemplateEditor } from "../components/ExcelTemplateEditor";
 import { buildPayrollTemplateCells } from "../helpers/financeTemplateMapping";
@@ -10,7 +10,6 @@ import styles from "./payroll.module.css";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLanguage } from "../helpers/i18n";
 import { useAuth } from "../helpers/useAuth";
-import { syncFinanceMutationOutbox } from "../helpers/financeScheduleClient";
 
 type QuotaNotice = "warning" | "limit" | null;
 
@@ -21,11 +20,11 @@ export default function PayrollPage() {
   const userId = authState.type === "authenticated" ? authState.user.id : null;
   useEffect(() => {
     if (userId === null) return;
-    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").catch(() => undefined); };
+    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").then(() => { if (school) void getPayroll(school, month).then(setRows).catch(() => undefined); }).catch(() => undefined); };
     sync();
     window.addEventListener("online", sync);
     return () => window.removeEventListener("online", sync);
-  }, [userId]);
+  }, [userId, school, month];
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [staff, setStaff] = useState<any[]>([]);

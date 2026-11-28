@@ -19,10 +19,12 @@ async function sendFinanceMutation<T>(kind: FinanceMutationKind, payload: unknow
 }
 export async function syncFinanceMutationOutbox(userId: number, kind: FinanceMutationKind) {
   const scope = financeMutationScope(kind, userId);
-  return flushOutbox(async (operationId, entryScope, payload) => {
+  const result = await flushOutbox(async (operationId, entryScope, payload) => {
     if (entryScope !== scope) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
     await sendFinanceMutation(kind, payload, operationId, userId);
   }, scope);
+  const remaining = await listOutbox(scope);
+  return { ...result, permanentFailures: remaining.filter((entry) => entry.retryable === false) };
 }
 async function createFinanceRecord<T extends QuotaResult>(kind: FinanceMutationKind, payload: unknown, userId: number): Promise<T & { queued?: boolean }> {
   if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("Ҳисоби корбар тасдиқ нашудааст.");

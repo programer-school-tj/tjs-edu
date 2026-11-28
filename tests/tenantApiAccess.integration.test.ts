@@ -197,7 +197,7 @@ test("institution directors cannot read another institution data or create its s
     }));
     const firstTariffResponse = await createTariffRequest();
     const retryTariffResponse = await createTariffRequest();
-    assert.equal(firstTariffResponse.status, 201, "first authorized tariff create should succeed");
+    assert.equal(firstTariffResponse.status, 201, `first authorized tariff create should succeed: ${await firstTariffResponse.clone().text()}`);
     assert.equal(retryTariffResponse.status, 201, "retry with the same idempotency key should replay success");
     const firstTariff = superjson.parse<{ tariff: { id: string } }>(await firstTariffResponse.text());
     const retriedTariff = superjson.parse<{ tariff: { id: string } }>(await retryTariffResponse.text());

@@ -9,6 +9,7 @@ export interface OutboxEntry<T = unknown> {
   updatedAt: number;
   attempts: number;
   lastError?: string;
+  retryable?: boolean;
 }
 
 const DATABASE_NAME = "tjs-edu-offline";
@@ -157,6 +158,11 @@ async function claimEntry(id: string): Promise<boolean> {
     }
 
     const leaseExpired = Date.now() - current.updatedAt > 2 * 60 * 1000;
+    if (current.status === "failed" && current.retryable === false) {
+      await transactionDone(transaction);
+      return false;
+    }
+
     if (current.status === "syncing" && !leaseExpired) {
       await transactionDone(transaction);
       return false;

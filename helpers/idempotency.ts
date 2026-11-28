@@ -50,7 +50,7 @@ export async function runIdempotent<T>(
       responseStatus: number | null;
       responseBody: T | null;
     }>`
-      SELECT request_hash, response_status, response_body
+      SELECT request_hash AS "requestHash", response_status AS "responseStatus", response_body AS "responseBody"
       FROM api_idempotency_keys
       WHERE scope = ${scope}
         AND user_id = ${userId}

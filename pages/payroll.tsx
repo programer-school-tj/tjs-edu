@@ -9,12 +9,23 @@ import { buildPayrollTemplateCells } from "../helpers/financeTemplateMapping";
 import styles from "./payroll.module.css";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLanguage } from "../helpers/i18n";
+import { useAuth } from "../helpers/useAuth";
+import { syncFinanceMutationOutbox } from "../helpers/financeScheduleClient";
 
 type QuotaNotice = "warning" | "limit" | null;
 
 export default function PayrollPage() {
   const nav = useNavigate();
   const { t } = useLanguage();
+  const { authState } = useAuth();
+  const userId = authState.type === "authenticated" ? authState.user.id : null;
+  useEffect(() => {
+    if (userId === null) return;
+    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").catch(() => undefined); };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [userId]);
   const [schools, setSchools] = useState<any[]>([]);
   const [school, setSchool] = useState("");
   const [staff, setStaff] = useState<any[]>([]);
@@ -111,9 +122,13 @@ export default function PayrollPage() {
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setErr("");
     try {
-      const result = await addPayroll({ institutionId: school, staffId: f.staffId, payrollMonth: month, tariffId: f.tariffId || undefined, baseAmount: Number(f.baseAmount), workRate: Number(f.workRate), weeklyHours: Number(f.weeklyHours), workingDays: Number(f.workingDays), classHeadAllowance: Number(f.classHeadAllowance), notebookCheckingAllowance: Number(f.notebookCheckingAllowance), methodicalAssociationHeadAllowance: Number(f.methodicalAssociationHeadAllowance), otherAllowances: Number(f.otherAllowances), incomeTaxDeduction: Number(f.incomeTaxDeduction), partyDuesDeduction: Number(f.partyDuesDeduction), tradeUnionDuesDeduction: Number(f.tradeUnionDuesDeduction), newspaperDeduction: Number(f.newspaperDeduction), otherDeductions: Number(f.otherDeductions), notes: f.notes });
-      if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
-      setRows(await getPayroll(school, month));
+      if (userId === null) throw new Error("Ҳисоби корбар тасдиқ нашудааст.");
+      const result = await addPayroll({ institutionId: school, staffId: f.staffId, payrollMonth: month, tariffId: f.tariffId || undefined, baseAmount: Number(f.baseAmount), workRate: Number(f.workRate), weeklyHours: Number(f.weeklyHours), workingDays: Number(f.workingDays), classHeadAllowance: Number(f.classHeadAllowance), notebookCheckingAllowance: Number(f.notebookCheckingAllowance), methodicalAssociationHeadAllowance: Number(f.methodicalAssociationHeadAllowance), otherAllowances: Number(f.otherAllowances), incomeTaxDeduction: Number(f.incomeTaxDeduction), partyDuesDeduction: Number(f.partyDuesDeduction), tradeUnionDuesDeduction: Number(f.tradeUnionDuesDeduction), newspaperDeduction: Number(f.newspaperDeduction), otherDeductions: Number(f.otherDeductions), notes: f.notes }, userId);
+      if (result.queued) { setErr("Сабти табели маош дар дастгоҳ нигоҳ дошта шуд. Пас аз барқарор шудани интернет худкор ҳамоҳанг мешавад."); }
+      else {
+        if (result.plan === "free" && result.operationCount >= 4) setQuotaNotice(result.operationCount >= 5 ? "limit" : "warning");
+        setRows(await getPayroll(school, month));
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Ҳадди 5 амалиёти ройгони")) setQuotaNotice("limit");
       setErr(error instanceof Error ? error.message : t("finance.payrollSaveError"));

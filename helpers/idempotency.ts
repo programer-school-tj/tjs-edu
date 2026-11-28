@@ -63,7 +63,10 @@ export async function runIdempotent<T>(
     };
     const storedHash = getStoredColumn("request_hash");
     const responseStatus = getStoredColumn("response_status") as number | null | undefined;
-    const responseBody = getStoredColumn("response_body") as T | null | undefined;
+    const storedResponseBody = getStoredColumn("response_body") as T | string | null | undefined;
+    const responseBody = typeof storedResponseBody === "string"
+      ? JSON.parse(storedResponseBody) as T
+      : storedResponseBody as T | null | undefined;
 
     if (storedHash !== requestHash) {
       return {

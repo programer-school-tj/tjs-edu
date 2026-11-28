@@ -62,6 +62,7 @@ export async function runIdempotent<T>(
     if (!existing) throw new Error("Сабти калиди амалиёт дастрас нест.");
 
     if (existing.request_hash !== requestHash) {
+      console.error("Idempotency hash mismatch", { scope, userId, key, storedHash: existing.request_hash, requestHash });
       return {
         status: 409,
         body: { message: "Ин калиди амалиёт бо маълумоти дигар истифода шудааст." } as T,

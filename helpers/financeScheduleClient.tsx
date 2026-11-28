@@ -4,12 +4,43 @@ import { cacheFormDocument, readCachedFormDocument } from "./formDocumentCache";
 type QuotaResult = { operationCount: number; plan: "free" | "pro" };
 async function call<T>(url:string,body?:unknown):Promise<T>{const r=await fetch(url,{credentials:"include",...(body?{method:"POST",headers:{"Content-Type":"application/json"},body:superjson.stringify(body)}:{})});const d=superjson.parse<any>(await r.text());if(!r.ok)throw new Error(d.message||"Амалиёт иҷро нашуд.");return d as T;}
 export const getTariffs=async(institutionId:string)=>(await call<{tariffs:any[]}>(`/_api/tariffs/list?institutionId=${encodeURIComponent(institutionId)}`)).tariffs||[];
-export const addTariff=(x:any)=>call<QuotaResult & {tariff:any}>("/_api/tariffs/create",x);
+type FinanceMutationKind = "tariffs" | "payroll" | "timetable";
+const financeMutationScope = (kind: FinanceMutationKind, userId: number) => `${kind}.create:${userId}`;
+const financeMutationUrl: Record<FinanceMutationKind, string> = { tariffs: "/_api/tariffs/create", payroll: "/_api/payroll/create", timetable: "/_api/timetable/create" };
+async function sendFinanceMutation<T>(kind: FinanceMutationKind, payload: unknown, operationId: string, userId: number): Promise<T> {
+  const response = await fetch(financeMutationUrl[kind], { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "Idempotency-Key": operationId, "X-Expected-User-ID": String(userId) }, body: superjson.stringify(payload) });
+  const data = superjson.parse<any>(await response.text());
+  if (!response.ok) throw new Error(data.message || "Амалиёт иҷро нашуд.");
+  return data as T;
+}
+export async function syncFinanceMutationOutbox(userId: number, kind: FinanceMutationKind) {
+  const scope = financeMutationScope(kind, userId);
+  return flushOutbox(async (operationId, entryScope, payload) => {
+    if (entryScope !== scope) throw new Error("Навъи амалиёти офлайн дастгирӣ намешавад.");
+    await sendFinanceMutation(kind, payload, operationId, userId);
+  }, scope);
+}
+async function createFinanceRecord<T extends QuotaResult>(kind: FinanceMutationKind, payload: unknown, userId: number): Promise<T & { queued?: boolean }> {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("Ҳисоби корбар тасдиқ нашудааст.");
+  const operationId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${kind}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try { return await sendFinanceMutation<T>(kind, payload, operationId, userId); }
+  catch (error) {
+    const networkFailure = error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
+    if (!networkFailure) throw error;
+    const scope = financeMutationScope(kind, userId);
+    await enqueueOutbox(scope, payload, operationId);
+    await syncFinanceMutationOutbox(userId, kind);
+    const pending = await listOutbox(scope);
+    if (pending.some((item) => item.id === operationId)) return { queued: true } as T & { queued: true };
+    return sendFinanceMutation<T>(kind, payload, operationId, userId);
+  }
+}
+export const addTariff=(x:any,userId:number)=>createFinanceRecord<QuotaResult & {tariff:any}>("tariffs",x,userId);
 export const adjustTariffs=(x:{institutionId:string;academicYear:string;effectiveFrom:string;adjustmentPercent:number;positionTitle?:string;staffId?:string;sourceTitle:string;sourceReference?:string;notes?:string})=>call<QuotaResult & {changed:any[];changedCount:number}>("/_api/tariffs/adjust",x);
 export const getPayroll=async(institutionId:string,month:string)=>(await call<{entries:any[]}>(`/_api/payroll/list?institutionId=${encodeURIComponent(institutionId)}&month=${month}`)).entries||[];
-export const addPayroll=(x:any)=>call<QuotaResult & {entry:any}>("/_api/payroll/create",x);
+export const addPayroll=(x:any,userId:number)=>createFinanceRecord<QuotaResult & {entry:any}>("payroll",x,userId);
 export const getTimetable=async(institutionId:string,academicYear:string)=>(await call<{entries:any[]}>(`/_api/timetable/list?institutionId=${encodeURIComponent(institutionId)}&academicYear=${academicYear}`)).entries||[];
-export const addTimetable=(x:any)=>call<QuotaResult & {entry:any}>("/_api/timetable/create",x);
+export const addTimetable=(x:any,userId:number)=>createFinanceRecord<QuotaResult & {entry:any}>("timetable",x,userId);
 export type FormDocumentType = "tariffing" | "payroll" | "timetable";
 type FormDocumentInput = {institutionId:string;documentType:FormDocumentType;academicYear:string;periodKey?:string;templateVersion?:string;cells:Record<string,string>};
 const formDocumentScope = (userId:number) => `forms.save:${userId}`;

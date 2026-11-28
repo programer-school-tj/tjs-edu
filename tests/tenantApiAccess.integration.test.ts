@@ -195,9 +195,11 @@ test("institution directors cannot read another institution data or create its s
       },
       body: superjson.stringify(tariffPayload),
     }));
+    const existingTariffKeys = await sql`SELECT idempotency_key FROM api_idempotency_keys WHERE scope = 'tariffs.create' AND user_id = ${userId!} AND idempotency_key = ${tariffKey}`;
+    assert.equal(existingTariffKeys.length, 0, "tariff idempotency key must be new before the first request");
     const firstTariffResponse = await createTariffRequest();
-    const retryTariffResponse = await createTariffRequest();
     assert.equal(firstTariffResponse.status, 201, `first authorized tariff create should succeed: ${await firstTariffResponse.clone().text()}`);
+    const retryTariffResponse = await createTariffRequest();
     assert.equal(retryTariffResponse.status, 201, "retry with the same idempotency key should replay success");
     const firstTariff = superjson.parse<{ tariff: { id: string } }>(await firstTariffResponse.text());
     const retriedTariff = superjson.parse<{ tariff: { id: string } }>(await retryTariffResponse.text());

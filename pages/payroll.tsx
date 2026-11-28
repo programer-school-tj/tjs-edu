@@ -33,7 +33,7 @@ export default function PayrollPage() {
   const [f, setF] = useState({ staffId: "", tariffId: "", baseAmount: "", workRate: "1", weeklyHours: "0", workingDays: "0", classHeadAllowance: "0", notebookCheckingAllowance: "0", methodicalAssociationHeadAllowance: "0", otherAllowances: "0", incomeTaxDeduction: "0", partyDuesDeduction: "0", tradeUnionDuesDeduction: "0", newspaperDeduction: "0", otherDeductions: "0", notes: "" });
   useEffect(() => {
     if (userId === null) return;
-    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").then(() => { if (school) void getPayroll(school, month).then(setRows).catch(() => undefined); }).catch(() => undefined); };
+    const sync = () => { void syncFinanceMutationOutbox(userId, "payroll").then((result) => { const failed = result.permanentFailures[0]; if (failed) setErr(failed.lastError || "Сабти офлайн рад карда шуд."); else if (school) void getPayroll(school, month).then(setRows).catch(() => undefined); }).catch(() => undefined); };
     sync();
     window.addEventListener("online", sync);
     return () => window.removeEventListener("online", sync);

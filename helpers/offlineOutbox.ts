@@ -57,11 +57,11 @@ function createId(): string {
 }
 
 /** Adds a durable local operation. Keep the returned id as the server idempotency key. */
-export async function enqueueOutbox<T>(scope: string, payload: T): Promise<OutboxEntry<T>> {
+export async function enqueueOutbox<T>(scope: string, payload: T, operationId = createId()): Promise<OutboxEntry<T>> {
   if (!scope.trim()) throw new Error("Scope-и амалиёт холӣ буда наметавонад.");
   const now = Date.now();
   const entry: OutboxEntry<T> = {
-    id: createId(),
+    id: operationId,
     scope,
     payload,
     status: "queued",

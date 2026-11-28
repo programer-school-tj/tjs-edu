@@ -58,6 +58,18 @@ export async function handle(request: Request) {
     }
 
     const outcome = await runIdempotent("payroll.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
+      const transactionalAccess = await idempotentTrx.selectFrom("institutionMemberships")
+        .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
+        .select("institutionMemberships.id")
+        .where("institutionMemberships.institutionId", "=", x.institutionId)
+        .where("institutionMemberships.userId", "=", user.id)
+        .where("institutionMemberships.isActive", "=", true)
+        .where("institutionMemberships.role", "=", "director")
+        .where("institutions.status", "=", "approved")
+        .executeTakeFirst();
+      if (user.role !== "admin" && !transactionalAccess) {
+        return { status: 403, body: { message: "Танҳо директори муассисаи тасдиқшуда метавонад табели маошро сабт кунад." } };
+      }
       const quotaOutcome = await withPlanQuota(x.institutionId, "payroll", async (trx) => {
       const staff = await trx.selectFrom("institutionStaff").select(["id", "positionTitle"])
         .where("id", "=", x.staffId).where("institutionId", "=", x.institutionId).where("isActive", "=", true).executeTakeFirst();

@@ -35,7 +35,9 @@ async function createFinanceRecord<T extends QuotaResult>(kind: FinanceMutationK
     await enqueueOutbox(scope, payload, operationId);
     await syncFinanceMutationOutbox(userId, kind);
     const pending = await listOutbox(scope);
-    if (pending.some((item) => item.id === operationId)) return { queued: true } as T & { queued: true };
+    const pendingEntry = pending.find((item) => item.id === operationId);
+    if (pendingEntry?.retryable === false) throw new Error(pendingEntry.lastError || "Сабти офлайн рад карда шуд. Маълумотро санҷед.");
+    if (pendingEntry) return { queued: true } as T & { queued: true };
     return sendFinanceMutation<T>(kind, payload, operationId, userId);
   }
 }

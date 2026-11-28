@@ -64,7 +64,7 @@ export async function handle(request: Request) {
       return new Response(superjson.stringify({ message: "Танҳо директори муассисаи тасдиқшуда метавонад тариф ворид кунад." }), { status: 403 });
     }
 
-    const outcome = await runIdempotent("tariffs.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
+    const outcome = await runIdempotent<{ message?: string; tariff?: unknown; operationCount?: number; plan?: "free" | "pro" }>("tariffs.create", user.id, idempotencyKey, x, async (idempotentTrx) => {
       const transactionalAccess = await idempotentTrx.selectFrom("institutionMemberships")
         .innerJoin("institutions", "institutions.id", "institutionMemberships.institutionId")
         .select("institutionMemberships.id")

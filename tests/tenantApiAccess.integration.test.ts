@@ -202,7 +202,9 @@ test("institution directors cannot read another institution data or create its s
     const retryTariffResponse = await createTariffRequest();
     assert.equal(retryTariffResponse.status, 201, "retry with the same idempotency key should replay success");
     const firstTariff = superjson.parse<{ tariff: { id: string } }>(await firstTariffResponse.text());
-    const retriedTariff = superjson.parse<{ tariff: { id: string } }>(await retryTariffResponse.text());
+    const retriedTariff = superjson.parse<{ tariff?: { id: string } }>(await retryTariffResponse.text());
+    assert.ok(retriedTariff?.tariff, `retry response must include the original tariff: ${JSON.stringify(retriedTariff)}`);
+    assert.ok(firstTariff?.tariff, `first response must include the created tariff: ${JSON.stringify(firstTariff)}`);
     assert.equal(retriedTariff.tariff.id, firstTariff.tariff.id, "retry must return the original tariff, not create another");
     const [tariffCount] = await sql`SELECT count(*)::int AS total FROM institution_tariffs WHERE institution_id = ${institutionA!}`;
     assert.equal(Number(tariffCount.total), 1, "idempotent retry must create exactly one tariff row");

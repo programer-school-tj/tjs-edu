@@ -46,9 +46,9 @@ export async function runIdempotent<T>(
     `.execute(trx);
 
     const stored = await sql<{
-      request_hash: string;
-      response_status: number | null;
-      response_body: T | null;
+      requestHash: string;
+      responseStatus: number | null;
+      responseBody: T | null;
     }>`
       SELECT request_hash, response_status, response_body
       FROM api_idempotency_keys
@@ -61,8 +61,7 @@ export async function runIdempotent<T>(
     const existing = stored.rows[0];
     if (!existing) throw new Error("Сабти калиди амалиёт дастрас нест.");
 
-    if (existing.request_hash !== requestHash) {
-      console.error("Idempotency hash mismatch", { scope, userId, key, storedHash: existing.request_hash, requestHash });
+    if (existing.requestHash !== requestHash) {
       return {
         status: 409,
         body: { message: "Ин калиди амалиёт бо маълумоти дигар истифода шудааст." } as T,
@@ -70,10 +69,10 @@ export async function runIdempotent<T>(
       };
     }
 
-    if (existing.response_status !== null) {
+    if (existing.responseStatus !== null) {
       return {
-        status: existing.response_status,
-        body: existing.response_body as T,
+        status: existing.responseStatus,
+        body: existing.responseBody as T,
         replayed: true,
       };
     }

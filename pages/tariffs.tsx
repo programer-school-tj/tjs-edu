@@ -30,7 +30,7 @@ export default function TariffsPage() {
   const [adjustmentBusy, setAdjustmentBusy] = useState(false);
   useEffect(() => {
     if (userId === null) return;
-    const sync = () => { void syncFinanceMutationOutbox(userId, "tariffs").then(() => { if (school) void getTariffs(school).then(setRows).catch(() => undefined); }).catch(() => undefined); };
+    const sync = () => { void syncFinanceMutationOutbox(userId, "tariffs").then((result) => { const failed = result.permanentFailures[0]; if (failed) setErr(failed.lastError || "Сабти офлайн рад карда шуд."); else if (school) void getTariffs(school).then(setRows).catch(() => undefined); }).catch(() => undefined); };
     sync();
     window.addEventListener("online", sync);
     return () => window.removeEventListener("online", sync);
